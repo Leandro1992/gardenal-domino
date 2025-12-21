@@ -63,5 +63,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     tx.update(gameRef, update);
   })
   .then(() => res.json({ ok: true }))
-  .catch((err) => res.status(400).json({ error: err.message }));
+  .catch((err) => {
+    console.error("Error adding round:", err);
+    const message = err.message === "Game not found" || err.message === "Game already finished" 
+      ? err.message 
+      : "Failed to add round";
+    return res.status(400).json({ error: message });
+  });
 }
