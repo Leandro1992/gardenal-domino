@@ -5,7 +5,11 @@ import cookie from "cookie";
 import { db } from "./firebaseAdmin";
 
 const SALT_ROUNDS = 10;
-const JWT_SECRET = process.env.JWT_SECRET || "change-me";
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET environment variable is required");
+}
 
 export const hashPassword = async (password: string) => {
   return bcrypt.hash(password, SALT_ROUNDS);

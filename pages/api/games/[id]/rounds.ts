@@ -48,11 +48,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       update.winnerTeam = newTeamA >= 100 ? "B" : "A";
       update.finishedAt = new Date();
       // lisa: if any team total equals 0 at finish
+      const lisaPlayers = [];
       if (newTeamA === 0) {
-        update.lisa = game.teamA;
+        lisaPlayers.push(...game.teamA);
       }
       if (newTeamB === 0) {
-        update.lisa = game.teamB;
+        lisaPlayers.push(...game.teamB);
+      }
+      if (lisaPlayers.length > 0) {
+        update.lisa = lisaPlayers;
       }
     }
 
