@@ -143,7 +143,7 @@ export default function SettingsPage() {
               </Alert>
             )}
 
-            <Input
+            <InputWithLabel
               label="E-mail"
               type="email"
               value={user.email}
@@ -151,7 +151,7 @@ export default function SettingsPage() {
             />
             <p className="text-xs text-gray-500 -mt-2">O e-mail não pode ser alterado</p>
 
-            <Input
+            <InputWithLabel
               label="Nome"
               type="text"
               value={name}
