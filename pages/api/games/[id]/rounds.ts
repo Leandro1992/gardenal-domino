@@ -9,6 +9,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { id } = req.query;
   if (!id || typeof id !== "string") return res.status(400).json({ error: "Missing id" });
 
+  const gameRef = db.collection("games").doc(id);
+
   // GET - List rounds
   if (req.method === "GET") {
     // Verificar se o jogo existe
@@ -102,6 +104,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   // POST - Add new round
   if (req.method !== "POST") return res.status(405).end();
+
+  // Verificar se o usuário é membro da partida
+  const gameSnap = await gameRef.get();
+  if (!gameSnap.exists) return res.status(404).json({ error: "Game not found" });
+  
+  const gameData: any = gameSnap.data();
+  const teamAIds = gameData.teamA || [];
+  const teamBIds = gameData.teamB || [];
+  const allPlayers = [...teamAIds, ...teamBIds];
+  
+  if (!allPlayers.includes(current.id)) {
+    return res.status(403).json({ error: "Apenas membros da partida podem registrar pontos" });
+  }
 
   const { teamA_points, teamB_points } = req.body || {};
   if (typeof teamA_points !== "number" || typeof teamB_points !== "number") {

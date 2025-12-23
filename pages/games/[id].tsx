@@ -195,10 +195,11 @@ export default function GameDetailPage() {
     );
   }
 
+  // O vencedor é quem NÃO atingiu 100 pontos (adversário perdeu ao chegar a 100)
   const winner = game.finished
     ? game.scoreA >= 100
-      ? 'A'
-      : 'B'
+      ? 'B'  // Time A chegou a 100, então Time B venceu
+      : 'A'  // Time B chegou a 100, então Time A venceu
     : null;
 
   return (
@@ -268,14 +269,9 @@ export default function GameDetailPage() {
         <Card className={winner === 'A' ? 'ring-2 ring-green-500' : ''}>
           <CardContent className="pt-6">
             <div className="text-center">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Time A</h3>
-              <div className="space-y-1 mb-4">
-                {game.teamA.map((player) => (
-                  <p key={player.id} className="text-sm text-gray-600">
-                    {player.name}
-                  </p>
-                ))}
-              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                {game.teamA.map(p => p.name).join(' & ')}
+              </h3>
               <div className="text-5xl font-bold text-primary-600">
                 {game.scoreA}
               </div>
@@ -347,14 +343,9 @@ export default function GameDetailPage() {
         <Card className={winner === 'B' ? 'ring-2 ring-green-500' : ''}>
           <CardContent className="pt-6">
             <div className="text-center">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Time B</h3>
-              <div className="space-y-1 mb-4">
-                {game.teamB.map((player) => (
-                  <p key={player.id} className="text-sm text-gray-600">
-                    {player.name}
-                  </p>
-                ))}
-              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                {game.teamB.map(p => p.name).join(' & ')}
+              </h3>
               <div className="text-5xl font-bold text-primary-600">
                 {game.scoreB}
               </div>

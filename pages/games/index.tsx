@@ -23,6 +23,8 @@ export default function GamesPage() {
   const [games, setGames] = useState<Game[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'active' | 'finished'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
 
   useEffect(() => {
     if (!loading && !user) {
@@ -55,8 +57,27 @@ export default function GamesPage() {
   }
 
   const filteredGames = games.filter((game) => {
-    if (filter === 'active') return !game.finished;
-    if (filter === 'finished') return game.finished;
+    // Filter by status
+    if (filter === 'active' && game.finished) return false;
+    if (filter === 'finished' && !game.finished) return false;
+    
+    // Filter by search query (player names)
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const allPlayers = [...game.teamA, ...game.teamB];
+      const hasMatchingPlayer = allPlayers.some(player => 
+        player.name.toLowerCase().includes(query)
+      );
+      if (!hasMatchingPlayer) return false;
+    }
+    
+    // Filter by date
+    if (dateFilter) {
+      const gameDate = new Date(game.createdAt?.seconds * 1000 || Date.now());
+      const filterDate = new Date(dateFilter);
+      if (gameDate.toDateString() !== filterDate.toDateString()) return false;
+    }
+    
     return true;
   });
 
@@ -104,6 +125,7 @@ export default function GamesPage() {
         </Button>
       </div>
 
+      {/* Games List */}
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
@@ -133,10 +155,11 @@ export default function GamesPage() {
       ) : (
         <div className="grid gap-4">
           {filteredGames.map((game) => {
+            // O vencedor é quem NÃO atingiu 100 pontos (adversário perdeu ao chegar a 100)
             const winner = game.finished
               ? game.scoreA >= 100
-                ? 'A'
-                : 'B'
+                ? 'B'  // Time A chegou a 100, então Time B venceu
+                : 'A'  // Time B chegou a 100, então Time A venceu
               : null;
 
             return (

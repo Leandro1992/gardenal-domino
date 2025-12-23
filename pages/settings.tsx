@@ -7,37 +7,81 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Lock, User } from 'lucide-react';
 
 export default function SettingsPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, checkAuth } = useAuth();
   const router = useRouter();
+  
+  // Profile states
+  const [name, setName] = useState('');
+  const [profileError, setProfileError] = useState('');
+  const [profileSuccess, setProfileSuccess] = useState('');
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  
+  // Password states
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [isChanging, setIsChanging] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
     }
+    if (user) {
+      setName(user.name);
+    }
   }, [user, loading, router]);
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setProfileError('');
+    setProfileSuccess('');
+
+    if (name.trim().length < 3) {
+      setProfileError('Nome deve ter pelo menos 3 caracteres');
+      return;
+    }
+
+    setIsUpdatingProfile(true);
+    try {
+      const response = await fetch('/api/auth/update-profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim() }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao atualizar perfil');
+      }
+
+      setProfileSuccess('Perfil atualizado com sucesso!');
+      await checkAuth();
+    } catch (err: any) {
+      setProfileError(err.message);
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  };
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
+    setPasswordError('');
+    setPasswordSuccess('');
 
     if (newPassword !== confirmPassword) {
-      setError('As senhas não coincidem');
+      setPasswordError('As senhas não coincidem');
       return;
     }
 
     if (newPassword.length < 6) {
-      setError('A nova senha deve ter no mínimo 6 caracteres');
+      setPasswordError('A nova senha deve ter no mínimo 6 caracteres');
       return;
     }
 
-    setIsChanging(true);
+    setIsChangingPassword(true);
     try {
       const response = await fetch('/api/auth/change-password', {
         method: 'POST',
@@ -50,14 +94,14 @@ export default function SettingsPage() {
         throw new Error(data.message || 'Erro ao alterar senha');
       }
 
-      setSuccess('Senha alterada com sucesso!');
+      setPasswordSuccess('Senha alterada com sucesso!');
       setOldPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (err: any) {
-      setError(err.message);
+      setPasswordError(err.message);
     } finally {
-      setIsChanging(false);
+      setIsChangingPassword(false);
     }
   };
 
@@ -80,28 +124,42 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      {/* User Info */}
+      {/* Update Profile */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
             <User className="h-5 w-5 text-gray-600" />
-            <CardTitle>Informações do Usuário</CardTitle>
+            <CardTitle>Informações do Perfil</CardTitle>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nome
-              </label>
-              <p className="text-gray-900">{user.name}</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email
-              </label>
-              <p className="text-gray-900">{user.email}</p>
-            </div>
+          <form onSubmit={handleUpdateProfile} className="space-y-4">
+            {profileError && <Alert type="error">{profileError}</Alert>}
+            {profileSuccess && (
+              <Alert type="success">
+                <Check className="h-4 w-4 mr-2 inline" />
+                {profileSuccess}
+              </Alert>
+            )}
+
+            <Input
+              label="E-mail"
+              type="email"
+              value={user.email}
+              disabled
+            />
+            <p className="text-xs text-gray-500 -mt-2">O e-mail não pode ser alterado</p>
+
+            <Input
+              label="Nome"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Digite seu nome"
+              required
+              minLength={3}
+            />
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Tipo de Conta
@@ -114,7 +172,18 @@ export default function SettingsPage() {
                 {user.role === 'admin' ? 'Administrador' : 'Usuário'}
               </span>
             </div>
-          </div>
+
+            <Button type="submit" disabled={isUpdatingProfile || name === user.name}>
+              {isUpdatingProfile ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                'Salvar Alterações'
+              )}
+            </Button>
+          </form>
         </CardContent>
       </Card>
 
@@ -128,16 +197,12 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleChangePassword} className="space-y-4">
-            {error && (
-              <div className="rounded-lg bg-red-50 p-4">
-                <p className="text-sm text-red-800">{error}</p>
-              </div>
-            )}
-            
-            {success && (
-              <div className="rounded-lg bg-green-50 p-4">
-                <p className="text-sm text-green-800">{success}</p>
-              </div>
+            {passwordError && <Alert type="error">{passwordError}</Alert>}
+            {passwordSuccess && (
+              <Alert type="success">
+                <Check className="h-4 w-4 mr-2 inline" />
+                {passwordSuccess}
+              </Alert>
             )}
 
             <InputWithLabel

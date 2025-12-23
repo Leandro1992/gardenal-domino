@@ -99,6 +99,29 @@ export default function UsersPage() {
     }
   };
 
+  const handleUpdateName = async (userId: string, currentName: string) => {
+    const newName = prompt('Digite o novo nome:', currentName);
+    if (!newName || newName === currentName) return;
+
+    try {
+      const response = await fetch(`/api/admin/users/${userId}/name`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Erro ao alterar nome');
+      }
+
+      setSuccess('Nome alterado com sucesso!');
+      fetchUsers();
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
   if (loading || !user || user.role !== 'admin') {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -230,7 +253,16 @@ export default function UsersPage() {
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => handleUpdateName(u.id, u.name)}
+                      title="Editar nome"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       onClick={() => handleResetPassword(u.id)}
+                      title="Redefinir senha"
                     >
                       <Key className="h-4 w-4" />
                     </Button>
