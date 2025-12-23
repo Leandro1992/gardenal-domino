@@ -1,8 +1,6 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import FirebaseConnection from '../../../../lib/firebaseAdmin';
-
-const db = FirebaseConnection.getInstance().db;
 import { getCurrentUser } from "../../../../lib/auth";
+import supabase from "../../../../lib/supabase";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const current = await getCurrentUser(req);
@@ -13,11 +11,93 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   // GET - List rounds
   if (req.method === "GET") {
-    const gameRef = db.collection("games").doc(id);
-    const snap = await gameRef.get();
-    if (!snap.exists) return res.status(404).json({ error: "Game not found" });
-    const game: any = snap.data();
-    return res.json({ rounds: game.rounds || [] });
+    // Verificar se o jogo existe
+    const { data: game, error: gameError } = await supabase
+      .from("games")
+      .select("id")
+      .eq("id", id)
+      .single();
+
+    if (gameError || !game) {
+      return res.status(404).json({ error: "Game not found" });
+    }
+
+    const { data: rounds, error: roundsError } = await supabase
+      .from("rounds")
+      .select("*")
+      .eq("game_id", id)
+      .order("round_number", { ascending: true });
+
+    if (roundsError) {
+      console.error("Error fetching rounds:", roundsError);
+      return res.status(500).json({ error: "Failed to fetch rounds" });
+    }
+
+    // Formatar rounds para compatibilidade
+    const formattedRounds = (rounds || []).map((r: any) => ({
+      id: r.id,
+      roundNumber: r.round_number,
+      teamA_points: r.team_a_points,
+      teamB_points: r.team_b_points,
+      recordedAt: r.recorded_at,
+      recordedBy: r.recorded_by,
+    }));
+
+    return res.json({ rounds: formattedRounds });
+  }
+
+  // DELETE - Undo last round
+  if (req.method === "DELETE") {
+    try {
+      const { data: result, error } = await supabase.rpc("undo_last_round", {
+        p_game_id: id,
+      });
+
+      if (error) {
+        const errorMessage = error.message || "";
+        if (errorMessage.includes("Game not found")) {
+          return res.status(404).json({ error: "Game not found" });
+        }
+        if (errorMessage.includes("No rounds to undo")) {
+          return res.status(400).json({ error: "No rounds to undo" });
+        }
+        console.error("Error undoing round:", error);
+        return res.status(500).json({ error: "Failed to undo round" });
+      }
+
+      // Buscar dados completos da partida atualizada
+      const { data: updatedGame, error: fetchError } = await supabase
+        .from("games")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (fetchError || !updatedGame) {
+        console.error("Error fetching updated game:", fetchError);
+        return res.status(500).json({ error: "Failed to fetch updated game" });
+      }
+
+      res.json({
+        ok: true,
+        game: {
+          id: updatedGame.id,
+          createdBy: updatedGame.created_by,
+          createdAt: updatedGame.created_at,
+          teamA: updatedGame.team_a,
+          teamB: updatedGame.team_b,
+          scoreA: updatedGame.team_a_total,
+          scoreB: updatedGame.team_b_total,
+          finished: updatedGame.finished,
+          winnerTeam: updatedGame.winner_team,
+          lisa: Array.isArray(updatedGame.lisa) && updatedGame.lisa.length > 0 ? updatedGame.lisa : [],
+          finishedAt: updatedGame.finished_at,
+        },
+      });
+      return;
+    } catch (err: any) {
+      console.error("Error undoing round:", err);
+      return res.status(500).json({ error: "Failed to undo round" });
+    }
   }
 
   // POST - Add new round
@@ -28,73 +108,62 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: "teamA_points and teamB_points numbers required" });
   }
 
-  const gameRef = db.collection("games").doc(id);
+  try {
+    // Usar função RPC para operação atômica
+    const { data: result, error } = await supabase.rpc("add_round_and_update_game", {
+      p_game_id: id,
+      p_team_a_points: teamA_points,
+      p_team_b_points: teamB_points,
+      p_recorded_by: current.id,
+    });
 
-  await db.runTransaction(async (tx) => {
-    const snap = await tx.get(gameRef);
-    if (!snap.exists) throw new Error("Game not found");
-    const game: any = snap.data();
-    if (game.finished) throw new Error("Game already finished");
-
-    const newTeamA = (game.teamA_total || 0) + teamA_points;
-    const newTeamB = (game.teamB_total || 0) + teamB_points;
-    const roundNumber = (game.rounds?.length || 0) + 1;
-    const round = {
-      roundNumber,
-      teamA_points,
-      teamB_points,
-      recordedAt: new Date(),
-      recordedBy: current.id,
-    };
-
-    const update: any = {
-      rounds: [...(game.rounds || []), round],
-      teamA_total: newTeamA,
-      teamB_total: newTeamB,
-      updatedAt: new Date(),
-    };
-
-    // check finish condition: the dupla that reaches >=100 first loses
-    if (newTeamA >= 100 || newTeamB >= 100) {
-      update.finished = true;
-      // winner is the other team
-      update.winnerTeam = newTeamA >= 100 ? "B" : "A";
-      update.finishedAt = new Date();
-      // lisa: if any team total equals 0 at finish
-      const lisaPlayers = [];
-      if (newTeamA === 0) {
-        lisaPlayers.push(...game.teamA);
+    if (error) {
+      // Verificar se é um erro conhecido
+      const errorMessage = error.message || "";
+      if (errorMessage.includes("Game not found")) {
+        return res.status(404).json({ error: "Game not found" });
       }
-      if (newTeamB === 0) {
-        lisaPlayers.push(...game.teamB);
+      if (errorMessage.includes("Game already finished")) {
+        return res.status(400).json({ error: "Game already finished" });
       }
-      if (lisaPlayers.length > 0) {
-        update.lisa = lisaPlayers;
-      }
+      console.error("Error adding round:", error);
+      return res.status(500).json({ error: "Failed to add round" });
     }
 
-    tx.update(gameRef, update);
-    return update;
-  })
-  .then(async (updatedData) => {
     // Buscar dados completos da partida atualizada
-    const snap = await gameRef.get();
-    const gameData = snap.data();
-    res.json({ 
-      ok: true, 
+    const { data: updatedGame, error: fetchError } = await supabase
+      .from("games")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (fetchError || !updatedGame) {
+      console.error("Error fetching updated game:", fetchError);
+      return res.status(500).json({ error: "Failed to fetch updated game" });
+    }
+
+    res.json({
+      ok: true,
       game: {
-        ...gameData,
-        id: snap.id,
-        lisa: Array.isArray(updatedData.lisa) && updatedData.lisa.length > 0,
-        finished: updatedData.finished || false
-      }
+        id: updatedGame.id,
+        createdBy: updatedGame.created_by,
+        createdAt: updatedGame.created_at,
+        teamA: updatedGame.team_a,
+        teamB: updatedGame.team_b,
+        scoreA: updatedGame.team_a_total,
+        scoreB: updatedGame.team_b_total,
+        finished: updatedGame.finished,
+        winnerTeam: updatedGame.winner_team,
+        lisa: Array.isArray(updatedGame.lisa) && updatedGame.lisa.length > 0 ? updatedGame.lisa : [],
+        finishedAt: updatedGame.finished_at,
+      },
     });
-  })
-  .catch((err) => {
+  } catch (err: any) {
     console.error("Error adding round:", err);
-    const message = err.message === "Game not found" || err.message === "Game already finished" 
-      ? err.message 
-      : "Failed to add round";
+    const message =
+      err.message === "Game not found" || err.message === "Game already finished"
+        ? err.message
+        : "Failed to add round";
     return res.status(400).json({ error: message });
-  });
+  }
 }

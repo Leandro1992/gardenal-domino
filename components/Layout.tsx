@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 import { useAuth } from '@/lib/useAuth';
 import { Home, Users, Trophy, LogOut, Menu, X, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -50,12 +51,14 @@ export default function Layout({ children }: LayoutProps) {
                 Gardenal Domino
               </h1>
             </div>
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-            >
-              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="p-2"
+              >
+                {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+              </Button>
           </div>
         </div>
 
@@ -93,16 +96,17 @@ export default function Layout({ children }: LayoutProps) {
                 Configurações
               </Link>
 
-              <button
+              <Button
+                variant="ghost"
                 onClick={() => {
                   setMobileMenuOpen(false);
                   handleLogout();
                 }}
-                className="w-full flex items-center px-4 py-3 rounded-lg text-base font-medium text-red-600 hover:bg-red-50"
+                className="w-full flex items-center justify-start px-4 py-3 text-base font-medium text-destructive hover:bg-destructive/10"
               >
                 <LogOut className="mr-3 h-5 w-5" />
                 Sair
-              </button>
+              </Button>
 
               <div className="mt-6 pt-6 border-t border-gray-200">
                 <div className="px-4">
@@ -174,13 +178,14 @@ export default function Layout({ children }: LayoutProps) {
                     <p className="text-xs text-gray-500 mt-0.5 capitalize">{user.role}</p>
                   </div>
                 </div>
-                <button
+                <Button
+                  variant="ghost"
                   onClick={handleLogout}
-                  className="mt-3 w-full flex items-center justify-center px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                  className="mt-3 w-full flex items-center justify-center text-destructive hover:bg-destructive/10"
                 >
                   <LogOut className="mr-2 h-4 w-4" />
                   Sair
-                </button>
+                </Button>
               </div>
             </div>
           </div>

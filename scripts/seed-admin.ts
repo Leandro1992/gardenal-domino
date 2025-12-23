@@ -1,7 +1,7 @@
-import FirebaseConnection from "../lib/firebaseAdmin";
+import dotenv from 'dotenv';
+dotenv.config();
+import supabase from "../lib/supabase";
 import { hashPassword } from "../lib/auth";
-
-const db = FirebaseConnection.getInstance().db;
 
 async function seedAdmin() {
   const email = process.env.DEFAULT_ADMIN_EMAIL;
@@ -12,24 +12,37 @@ async function seedAdmin() {
     process.exit(1);
   }
 
-  const q = await db.collection("users").where("email", "==", email).get();
-  if (!q.empty) {
+  // Verificar se admin já existe
+  const { data: existingUser } = await supabase
+    .from("users")
+    .select("id")
+    .eq("email", email)
+    .single();
+
+  if (existingUser) {
     console.log("Admin already exists, skipping seed.");
     process.exit(0);
   }
 
   const passwordHash = await hashPassword(password);
-  const doc = await db.collection("users").add({
-    email,
-    name: "Admin",
-    role: "admin",
-    passwordHash,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    lisaCount: 0,
-  });
+  const { data: newUser, error } = await supabase
+    .from("users")
+    .insert({
+      email,
+      name: "Admin",
+      role: "admin",
+      password_hash: passwordHash,
+      lisa_count: 0,
+    })
+    .select("id")
+    .single();
 
-  console.log("Admin created:", doc.id);
+  if (error) {
+    console.error("Seed failed:", error);
+    process.exit(1);
+  }
+
+  console.log("Admin created:", newUser.id);
   process.exit(0);
 }
 

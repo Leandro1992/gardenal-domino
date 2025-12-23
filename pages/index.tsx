@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/lib/useAuth';
-import { Button } from '@/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, Trophy, TrendingUp, Users, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -14,7 +14,7 @@ interface Game {
   scoreB: number;
   status: 'active' | 'finished';
   finished: boolean;
-  lisa: boolean;
+  lisa: string[]; // Array de UUIDs dos jogadores que fizeram lisa, ou array vazio
   createdAt: any;
 }
 
@@ -213,7 +213,7 @@ export default function HomePage() {
                             {game.scoreB}
                           </span>
                         </div>
-                        {game.lisa && (
+                        {Array.isArray(game.lisa) && game.lisa.length > 0 && (
                           <div className="mt-2">
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                               Lisa

@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/lib/useAuth';
-import { Button } from '@/components/ui/Button';
-import { Card, CardContent } from '@/components/ui/Card';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Loader2, Trophy, Plus, Filter, Award } from 'lucide-react';
 import Link from 'next/link';
 
@@ -13,7 +13,7 @@ interface Game {
   scoreA: number;
   scoreB: number;
   finished: boolean;
-  lisa: boolean;
+  lisa: string[]; // Array de UUIDs dos jogadores que fizeram lisa, ou array vazio
   createdAt: any;
 }
 
@@ -82,21 +82,21 @@ export default function GamesPage() {
       {/* Filters */}
       <div className="flex gap-2 overflow-x-auto pb-2">
         <Button
-          variant={filter === 'all' ? 'primary' : 'secondary'}
+          variant={filter === 'all' ? 'default' : 'outline'}
           size="sm"
           onClick={() => setFilter('all')}
         >
           Todas
         </Button>
         <Button
-          variant={filter === 'active' ? 'primary' : 'secondary'}
+          variant={filter === 'active' ? 'default' : 'outline'}
           size="sm"
           onClick={() => setFilter('active')}
         >
           Em Andamento
         </Button>
         <Button
-          variant={filter === 'finished' ? 'primary' : 'secondary'}
+          variant={filter === 'finished' ? 'default' : 'outline'}
           size="sm"
           onClick={() => setFilter('finished')}
         >
@@ -155,7 +155,7 @@ export default function GamesPage() {
                           }`}>
                             {game.finished ? 'Finalizada' : 'Em Andamento'}
                           </span>
-                          {game.lisa && (
+                          {Array.isArray(game.lisa) && game.lisa.length > 0 && (
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                               <Award className="h-3 w-3 mr-1" />
                               Lisa

@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/lib/useAuth';
-import { Button } from '@/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Loader2, Users as UsersIcon, ArrowLeft } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Loader2, Users as UsersIcon, ArrowLeft, Search } from 'lucide-react';
 import Link from 'next/link';
 
 interface User {
@@ -19,6 +20,7 @@ export default function NewGamePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   
   const [teamA, setTeamA] = useState<string[]>([]);
   const [teamB, setTeamB] = useState<string[]>([]);
@@ -95,6 +97,31 @@ export default function NewGamePage() {
     }
   };
 
+  // Filtrar e ordenar usuários - DEVE VIR ANTES DE QUALQUER RETURN CONDICIONAL
+  const filteredAndSortedUsers = useMemo(() => {
+    if (!user) return users;
+
+    // Filtrar por busca
+    const filtered = users.filter((u) => {
+      const searchLower = searchQuery.toLowerCase();
+      return (
+        u.name.toLowerCase().includes(searchLower) ||
+        u.email.toLowerCase().includes(searchLower)
+      );
+    });
+
+    // Ordenar: usuário logado primeiro, depois os demais
+    const sorted = [...filtered].sort((a, b) => {
+      if (a.id === user.id) return -1;
+      if (b.id === user.id) return 1;
+      return 0;
+    });
+
+    return sorted;
+  }, [users, searchQuery, user]);
+
+  const canCreate = teamA.length === 2 && teamB.length === 2;
+
   if (loading || !user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -102,8 +129,6 @@ export default function NewGamePage() {
       </div>
     );
   }
-
-  const canCreate = teamA.length === 2 && teamB.length === 2;
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
@@ -207,16 +232,35 @@ export default function NewGamePage() {
           <CardTitle>Jogadores Disponíveis</CardTitle>
         </CardHeader>
         <CardContent>
+          {/* Campo de busca */}
+          <div className="mb-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                type="text"
+                placeholder="Buscar jogador por nome ou email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
+
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-primary-600" />
             </div>
+          ) : filteredAndSortedUsers.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-4">
+              Nenhum jogador encontrado
+            </p>
           ) : (
             <div className="space-y-2">
-              {users.map((u) => {
+              {filteredAndSortedUsers.map((u) => {
                 const inTeamA = teamA.includes(u.id);
                 const inTeamB = teamB.includes(u.id);
                 const selected = inTeamA || inTeamB;
+                const isCurrentUser = u.id === user?.id;
 
                 return (
                   <div
@@ -226,14 +270,23 @@ export default function NewGamePage() {
                         ? inTeamA
                           ? 'border-primary-300 bg-primary-50'
                           : 'border-blue-300 bg-blue-50'
+                        : isCurrentUser
+                        ? 'border-primary-200 bg-primary-50/50'
                         : 'border-gray-200 bg-white'
                     }`}
                   >
-                    <span className="font-medium text-gray-900">{u.name}</span>
+                    <div className="flex items-center gap-2">
+                      {isCurrentUser && (
+                        <span className="text-xs font-semibold text-primary-600 bg-primary-100 px-2 py-0.5 rounded">
+                          Você
+                        </span>
+                      )}
+                      <span className="font-medium text-gray-900">{u.name}</span>
+                    </div>
                     <div className="flex gap-2">
                       <Button
                         size="sm"
-                        variant={inTeamA ? 'primary' : 'secondary'}
+                        variant={inTeamA ? 'default' : 'outline'}
                         onClick={() => handleTogglePlayer(u.id, 'A')}
                         disabled={teamA.length >= 2 && !inTeamA}
                       >
@@ -241,7 +294,7 @@ export default function NewGamePage() {
                       </Button>
                       <Button
                         size="sm"
-                        variant={inTeamB ? 'primary' : 'secondary'}
+                        variant={inTeamB ? 'default' : 'outline'}
                         onClick={() => handleTogglePlayer(u.id, 'B')}
                         disabled={teamB.length >= 2 && !inTeamB}
                       >
@@ -258,7 +311,7 @@ export default function NewGamePage() {
 
       <div className="flex gap-3">
         <Button
-          fullWidth
+          className="w-full"
           size="lg"
           onClick={handleCreateGame}
           disabled={!canCreate || creating}
@@ -276,7 +329,7 @@ export default function NewGamePage() {
           )}
         </Button>
         <Link href="/">
-          <Button fullWidth size="lg" variant="secondary">
+          <Button className="w-full" size="lg" variant="outline">
             Cancelar
           </Button>
         </Link>
