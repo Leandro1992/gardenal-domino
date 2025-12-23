@@ -1,9 +1,14 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { getCurrentUser, hashPassword } from "../../../lib/auth";
-import { db } from "../../../lib/firebaseAdmin";
+import FirebaseConnection from "../../../lib/firebaseAdmin";
+
+const db = FirebaseConnection.getInstance().db;
+
+// Add a type that includes the 'role' property
+type User = { id: string; role: string };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const current = await getCurrentUser(req);
+  const current = (await getCurrentUser(req)) as { id: string; role?: string };
   if (!current || current.role !== "admin") return res.status(403).json({ error: "Admin only" });
 
   if (req.method === "POST") {

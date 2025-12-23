@@ -1,5 +1,7 @@
-import { db } from "../lib/firebaseAdmin";
+import FirebaseConnection from "../lib/firebaseAdmin";
 import { hashPassword } from "../lib/auth";
+
+const db = FirebaseConnection.getInstance().db;
 
 async function seedAdmin() {
   const email = process.env.DEFAULT_ADMIN_EMAIL;

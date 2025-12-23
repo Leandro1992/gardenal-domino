@@ -1,9 +1,11 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { getCurrentUser, hashPassword } from "../../../../lib/auth";
-import { db } from "../../../../lib/firebaseAdmin";
+import { getCurrentUser, hashPassword } from "../../../../../lib/auth";
+import FirebaseConnection from "../../../../../lib/firebaseAdmin";
+
+const db = FirebaseConnection.getInstance().db;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const current = await getCurrentUser(req);
+  const current = (await getCurrentUser(req)) as { id: string; role?: string };
   if (!current || current.role !== "admin") return res.status(403).json({ error: "Admin only" });
   const { id } = req.query;
   if (!id || typeof id !== "string") return res.status(400).json({ error: "Missing id" });

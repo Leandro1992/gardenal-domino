@@ -1,14 +1,27 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { db } from "../../../../lib/firebaseAdmin";
+import FirebaseConnection from '../../../../lib/firebaseAdmin';
+
+const db = FirebaseConnection.getInstance().db;
 import { getCurrentUser } from "../../../../lib/auth";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const current = await getCurrentUser(req);
   if (!current) return res.status(401).json({ error: "Not authenticated" });
 
-  if (req.method !== "POST") return res.status(405).end();
   const { id } = req.query;
   if (!id || typeof id !== "string") return res.status(400).json({ error: "Missing id" });
+
+  // GET - List rounds
+  if (req.method === "GET") {
+    const gameRef = db.collection("games").doc(id);
+    const snap = await gameRef.get();
+    if (!snap.exists) return res.status(404).json({ error: "Game not found" });
+    const game: any = snap.data();
+    return res.json({ rounds: game.rounds || [] });
+  }
+
+  // POST - Add new round
+  if (req.method !== "POST") return res.status(405).end();
 
   const { teamA_points, teamB_points } = req.body || {};
   if (typeof teamA_points !== "number" || typeof teamB_points !== "number") {

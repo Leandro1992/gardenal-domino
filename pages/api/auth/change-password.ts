@@ -1,6 +1,8 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { getCurrentUser, comparePassword, hashPassword } from "../../../lib/auth";
-import { db } from "../../../lib/firebaseAdmin";
+import FirebaseConnection from "../../../lib/firebaseAdmin";
+
+const db = FirebaseConnection.getInstance().db;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).end();

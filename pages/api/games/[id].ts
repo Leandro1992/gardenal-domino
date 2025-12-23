@@ -1,5 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { db } from "../../../lib/firebaseAdmin";
+import FirebaseConnection from '../../../lib/firebaseAdmin';
+
+const db = FirebaseConnection.getInstance().db;
 import { getCurrentUser } from "../../../lib/auth";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -11,7 +13,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === "GET") {
     const doc = await db.collection("games").doc(id).get();
     if (!doc.exists) return res.status(404).json({ error: "Not found" });
-    return res.json({ id: doc.id, ...doc.data() });
+    
+    const gameData: any = doc.data();
+    
+    // Populate player names for teamA and teamB
+    const teamAIds = gameData.teamA || [];
+    const teamBIds = gameData.teamB || [];
+    
+    const teamAPlayers = await Promise.all(
+      teamAIds.map(async (userId: string) => {
+        const userDoc = await db.collection("users").doc(userId).get();
+        if (!userDoc.exists) return { id: userId, name: "Unknown" };
+        const userData = userDoc.data();
+        return { id: userId, name: userData?.name || userData?.email || "Unknown" };
+      })
+    );
+    
+    const teamBPlayers = await Promise.all(
+      teamBIds.map(async (userId: string) => {
+        const userDoc = await db.collection("users").doc(userId).get();
+        if (!userDoc.exists) return { id: userId, name: "Unknown" };
+        const userData = userDoc.data();
+        return { id: userId, name: userData?.name || userData?.email || "Unknown" };
+      })
+    );
+    
+    return res.json({ 
+      id: doc.id, 
+      ...gameData,
+      teamA: teamAPlayers,
+      teamB: teamBPlayers,
+      scoreA: gameData.teamA_total || 0,
+      scoreB: gameData.teamB_total || 0
+    });
   }
 
   return res.status(405).end();
