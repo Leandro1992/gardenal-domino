@@ -247,7 +247,7 @@ export default function HomePage() {
                           <span className="text-sm font-medium text-gray-700">
                             {game.teamA.map(p => p.name).join(' & ')}
                           </span>
-                          <span className={`text-xl font-bold ${game.scoreA >= 100 ? 'text-green-600' : 'text-gray-900'}`}>
+                          <span className={`text-xl font-bold ${game.scoreA >= 100 ? 'text-red-600' : 'text-green-600'}`}>
                             {game.scoreA}
                           </span>
                         </div>
@@ -255,7 +255,7 @@ export default function HomePage() {
                           <span className="text-sm font-medium text-gray-700">
                             {game.teamB.map(p => p.name).join(' & ')}
                           </span>
-                          <span className={`text-xl font-bold ${game.scoreB >= 100 ? 'text-green-600' : 'text-gray-900'}`}>
+                          <span className={`text-xl font-bold ${game.scoreB >= 100 ? 'text-red-600' : 'text-green-600'}`}>
                             {game.scoreB}
                           </span>
                         </div>

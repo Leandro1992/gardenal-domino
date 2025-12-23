@@ -3,7 +3,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/lib/useAuth';
-import { Home, Users, Trophy, LogOut, Menu, X, Settings } from 'lucide-react';
+import { Home, Users, Trophy, LogOut, Menu, X, Settings, Award } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface LayoutProps {
@@ -27,6 +27,7 @@ export default function Layout({ children }: LayoutProps) {
   const navigation = [
     { name: 'Início', href: '/', icon: Home },
     { name: 'Partidas', href: '/games', icon: Trophy },
+    { name: 'Ranking', href: '/ranking', icon: Award },
     ...(user.role === 'admin'
       ? [{ name: 'Usuários', href: '/admin/users', icon: Users }]
       : []),
@@ -47,7 +48,7 @@ export default function Layout({ children }: LayoutProps) {
                 className="rounded"
               />
               <h1 className="text-lg font-bold text-primary-600">
-                Gardenal Domino
+                Dominó Gardenal
               </h1>
             </div>
             <button
@@ -128,7 +129,7 @@ export default function Layout({ children }: LayoutProps) {
                 height={40}
                 className="rounded"
               />
-              <h1 className="text-lg font-bold text-primary-600">Gardenal Domino</h1>
+              <h1 className="text-lg font-bold text-primary-600">Dominó Gardenal</h1>
             </div>
           </div>
           

@@ -1,20 +1,65 @@
-# Gardenal Domino
+# Dominó Gardenal
 
-Web app para registrar partidas e contas estatísticas dos jogos dos amigos do condomínio Garden.
+Web app para registrar partidas e calcular estatísticas dos jogos de dominó dos amigos do condomínio Garden.
 
-Stack
-- Next.js + React (TypeScript)
-- Node.js
-- Firestore (Firebase Admin SDK)
-- Bcrypt + JWT (autenticação simples)
-- Deploy: Heroku
+## Stack Tecnológico
+- **Next.js 13** + React (TypeScript)
+- **Node.js**
+- **Firestore** (Firebase Admin SDK)
+- **Bcrypt + JWT** (autenticação com cookies HttpOnly)
+- **Tailwind CSS 3.4** (Design System)
+- **Lucide React** (Ícones)
+- **Deploy**: Heroku
 
-Funcionalidades principais
-- Usuários com roles: `admin` e `user`.
-- Somente `admin` pode criar novos usuários.
-- Troca de senha local (sem e-mail): usuário altera sua própria senha (requer senha antiga); admin pode alterar a senha de outros.
-- Criação de partidas com 4 jogadores (2 duplas), registro de rodadas e finalização automática quando uma dupla atinge 100 pontos.
-- Marcação `lisa` quando uma dupla termina com 0 pontos.
+## Funcionalidades Principais
+
+### Autenticação e Usuários
+- ✅ Sistema de roles: `admin` e `user`
+- ✅ Somente `admin` pode criar novos usuários
+- ✅ Troca de senha segura (usuário precisa da senha antiga)
+- ✅ Admin pode redefinir senha de qualquer usuário
+- ✅ Edição de perfil (nome do usuário)
+- ✅ Página de configurações pessoais
+
+### Gerenciamento de Partidas
+- ✅ Criação de partidas com 4 jogadores (2 duplas)
+- ✅ Busca e filtro de jogadores ao criar partida
+- ✅ Registro de rodadas com pontuação
+- ✅ Finalização automática quando uma dupla atinge 100 pontos
+- ✅ **Regra do Dominó**: quem chega a 100 pontos **PERDE**
+- ✅ Marcação "Lisa" quando vencedor mantém 0 pontos
+- ✅ Animação especial para vitórias Lisa
+- ✅ Validação: jogador não pode estar em múltiplas partidas ativas
+- ✅ Validação: apenas membros da partida podem adicionar rodadas
+- ✅ Histórico completo de rodadas
+- ✅ Exibição de nomes dos jogadores (não apenas "Time A/B")
+
+### Filtros e Busca
+- ✅ Filtro de partidas por status (todas, ativas, finalizadas)
+- ✅ Busca de partidas por nome do jogador
+- ✅ Filtro de partidas por data
+- ✅ Filtro de jogadores ao criar partida
+
+### Estatísticas
+- ✅ Dashboard com estatísticas do usuário
+- ✅ Contador de vitórias e derrotas
+- ✅ Contador de lisas aplicadas e tomadas
+- ✅ **Ranking Geral** com sistema de pontuação:
+  - Vitória: +1 ponto
+  - Lisa aplicada: +2 pontos
+  - Derrota: -1 ponto
+  - Lisa tomada: -2 pontos
+- ✅ Ordenação por score, vitórias e lisas
+- ✅ Destaque visual para top 3 (🏆 🥈 🥉)
+
+### Interface
+- ✅ **Mobile-First** (otimizado para celulares)
+- ✅ Design responsivo (mobile, tablet, desktop)
+- ✅ Menu lateral (desktop) e hambúrguer (mobile)
+- ✅ Logo Gardenal integrada
+- ✅ Loading states em todas as operações
+- ✅ Feedback visual (cores, ícones, badges)
+- ✅ Cards informativos e organizados
 
 Configuração (variáveis de ambiente)
 Defina as variáveis de ambiente:
@@ -42,17 +87,30 @@ Instalação local
    - npm run build
    - npm run start
 
-Endpoints principais (esboço)
-- POST /api/auth/login { email, password }
-- POST /api/auth/logout
-- GET /api/auth/me
-- POST /api/auth/change-password { oldPassword, newPassword }
-- POST /api/admin/users { email, name, password, role } (admin)
-- PUT /api/admin/users/:id/password { newPassword } (admin)
-- POST /api/games { teamA: [id,id], teamB: [id,id] }
-- GET /api/games
-- GET /api/games/:id
-- POST /api/games/:id/rounds { teamA_points, teamB_points }
+## Endpoints da API
+
+### Autenticação
+- `POST /api/auth/login` - Login com email e senha
+- `POST /api/auth/logout` - Logout (limpa cookie)
+- `GET /api/auth/me` - Dados do usuário logado
+- `POST /api/auth/change-password` - Trocar senha (requer senha antiga)
+- `POST /api/auth/update-profile` - Atualizar nome do usuário
+
+### Admin (requer role admin)
+- `GET /api/admin/users` - Listar todos os usuários
+- `POST /api/admin/users` - Criar novo usuário
+- `PUT /api/admin/users/:id/password` - Redefinir senha de usuário
+
+### Partidas
+- `GET /api/games` - Listar todas as partidas
+- `POST /api/games` - Criar nova partida
+- `GET /api/games/:id` - Detalhes de uma partida
+- `GET /api/games/:id/rounds` - Rodadas de uma partida
+- `POST /api/games/:id/rounds` - Adicionar rodada (auto-finaliza se atingir 100)
+
+### Estatísticas
+- `GET /api/stats/me` - Estatísticas do usuário logado
+- `GET /api/stats/ranking` - Ranking geral de todos os jogadores
 
 Deploy para Heroku (básico)
 1. Crie app no Heroku
