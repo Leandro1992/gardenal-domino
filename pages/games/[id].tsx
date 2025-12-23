@@ -156,10 +156,11 @@ export default function GameDetailPage() {
     );
   }
 
+  // O vencedor é quem NÃO atingiu 100 pontos (adversário perdeu ao chegar a 100)
   const winner = game.finished
     ? game.scoreA >= 100
-      ? 'A'
-      : 'B'
+      ? 'B'  // Time A chegou a 100, então Time B venceu
+      : 'A'  // Time B chegou a 100, então Time A venceu
     : null;
 
   return (
@@ -229,14 +230,9 @@ export default function GameDetailPage() {
         <Card className={winner === 'A' ? 'ring-2 ring-green-500' : ''}>
           <CardContent className="pt-6">
             <div className="text-center">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Time A</h3>
-              <div className="space-y-1 mb-4">
-                {game.teamA.map((player) => (
-                  <p key={player.id} className="text-sm text-gray-600">
-                    {player.name}
-                  </p>
-                ))}
-              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                {game.teamA.map(p => p.name).join(' & ')}
+              </h3>
               <div className="text-5xl font-bold text-primary-600">
                 {game.scoreA}
               </div>
@@ -252,14 +248,9 @@ export default function GameDetailPage() {
         <Card className={winner === 'B' ? 'ring-2 ring-green-500' : ''}>
           <CardContent className="pt-6">
             <div className="text-center">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Time B</h3>
-              <div className="space-y-1 mb-4">
-                {game.teamB.map((player) => (
-                  <p key={player.id} className="text-sm text-gray-600">
-                    {player.name}
-                  </p>
-                ))}
-              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                {game.teamB.map(p => p.name).join(' & ')}
+              </h3>
               <div className="text-5xl font-bold text-primary-600">
                 {game.scoreB}
               </div>
@@ -294,7 +285,7 @@ export default function GameDetailPage() {
                   )}
 
                   <Input
-                    label="Pontos Time A"
+                    label={`Pontos ${game.teamA.map(p => p.name).join(' & ')}`}
                     type="number"
                     min="0"
                     value={pointsA}
@@ -303,7 +294,7 @@ export default function GameDetailPage() {
                   />
 
                   <Input
-                    label="Pontos Time B"
+                    label={`Pontos ${game.teamB.map(p => p.name).join(' & ')}`}
                     type="number"
                     min="0"
                     value={pointsB}
@@ -362,14 +353,18 @@ export default function GameDetailPage() {
                     </span>
                     <div className="flex items-center gap-6">
                       <div className="text-center">
-                        <p className="text-xs text-gray-500 mb-1">Time A</p>
+                        <p className="text-xs text-gray-500 mb-1">
+                          {game.teamA.map(p => p.name).join(' & ')}
+                        </p>
                         <p className="text-lg font-bold text-gray-900">
                           {round.teamA_points}
                         </p>
                       </div>
                       <span className="text-gray-400">×</span>
                       <div className="text-center">
-                        <p className="text-xs text-gray-500 mb-1">Time B</p>
+                        <p className="text-xs text-gray-500 mb-1">
+                          {game.teamB.map(p => p.name).join(' & ')}
+                        </p>
                         <p className="text-lg font-bold text-gray-900">
                           {round.teamB_points}
                         </p>

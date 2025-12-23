@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/lib/useAuth';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Loader2, Users as UsersIcon, ArrowLeft } from 'lucide-react';
+import { Loader2, Users as UsersIcon, ArrowLeft, Search } from 'lucide-react';
 import Link from 'next/link';
 
 interface User {
@@ -19,6 +20,7 @@ export default function NewGamePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   
   const [teamA, setTeamA] = useState<string[]>([]);
   const [teamB, setTeamB] = useState<string[]>([]);
@@ -104,6 +106,12 @@ export default function NewGamePage() {
   }
 
   const canCreate = teamA.length === 2 && teamB.length === 2;
+  
+  // Filtrar usuários pela busca
+  const filteredUsers = users.filter(u => 
+    u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    u.email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
@@ -207,13 +215,30 @@ export default function NewGamePage() {
           <CardTitle>Jogadores Disponíveis</CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="mb-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Buscar por nome ou e-mail..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+          
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-primary-600" />
             </div>
+          ) : filteredUsers.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-8">
+              Nenhum jogador encontrado
+            </p>
           ) : (
-            <div className="space-y-2">
-              {users.map((u) => {
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {filteredUsers.map((u) => {
                 const inTeamA = teamA.includes(u.id);
                 const inTeamB = teamB.includes(u.id);
                 const selected = inTeamA || inTeamB;

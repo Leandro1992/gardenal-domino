@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import { useAuth } from '@/lib/useAuth';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Plus, Trophy, TrendingUp, Users, Loader2 } from 'lucide-react';
+import { Plus, Trophy, TrendingUp, Users, Loader2, Award, Target, Flame, Frown } from 'lucide-react';
 import Link from 'next/link';
 
 interface Game {
@@ -18,10 +18,19 @@ interface Game {
   createdAt: any;
 }
 
+interface UserStats {
+  victories: number;
+  defeats: number;
+  lisasApplied: number;
+  lisasTaken: number;
+  totalGames: number;
+}
+
 export default function HomePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [games, setGames] = useState<Game[]>([]);
+  const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -29,6 +38,7 @@ export default function HomePage() {
       router.push('/login');
     } else if (user) {
       fetchGames();
+      fetchUserStats();
     }
   }, [user, loading, router]);
 
@@ -43,6 +53,18 @@ export default function HomePage() {
       console.error('Erro ao carregar partidas:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchUserStats = async () => {
+    try {
+      const response = await fetch('/api/stats/me');
+      if (response.ok) {
+        const data = await response.json();
+        setUserStats(data.stats);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar estatísticas:', error);
     }
   };
 
@@ -78,51 +100,75 @@ export default function HomePage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         <Card>
           <CardContent className="pt-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center">
-                  <Trophy className="h-6 w-6 text-primary-600" />
-                </div>
+            <div className="text-center">
+              <div className="mx-auto w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-3">
+                <Trophy className="h-6 w-6 text-green-600" />
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Total de Partidas</p>
-                <p className="text-2xl font-bold text-gray-900">{games.length}</p>
-              </div>
+              <p className="text-sm font-medium text-gray-500 mb-1">Vitórias</p>
+              <p className="text-2xl font-bold text-gray-900">{userStats?.victories || 0}</p>
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="pt-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                  <TrendingUp className="h-6 w-6 text-green-600" />
-                </div>
+            <div className="text-center">
+              <div className="mx-auto w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mb-3">
+                <Target className="h-6 w-6 text-red-600" />
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Em Andamento</p>
-                <p className="text-2xl font-bold text-gray-900">{activeGames.length}</p>
-              </div>
+              <p className="text-sm font-medium text-gray-500 mb-1">Derrotas</p>
+              <p className="text-2xl font-bold text-gray-900">{userStats?.defeats || 0}</p>
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="pt-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Users className="h-6 w-6 text-blue-600" />
-                </div>
+            <div className="text-center">
+              <div className="mx-auto w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center mb-3">
+                <Flame className="h-6 w-6 text-yellow-600" />
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Finalizadas</p>
-                <p className="text-2xl font-bold text-gray-900">{finishedGames.length}</p>
+              <p className="text-sm font-medium text-gray-500 mb-1">Lisas Aplicadas</p>
+              <p className="text-2xl font-bold text-gray-900">{userStats?.lisasApplied || 0}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="mx-auto w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-3">
+                <Frown className="h-6 w-6 text-purple-600" />
               </div>
+              <p className="text-sm font-medium text-gray-500 mb-1">Lisas Levadas</p>
+              <p className="text-2xl font-bold text-gray-900">{userStats?.lisasTaken || 0}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="mx-auto w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center mb-3">
+                <Trophy className="h-6 w-6 text-primary-600" />
+              </div>
+              <p className="text-sm font-medium text-gray-500 mb-1">Total de Partidas</p>
+              <p className="text-2xl font-bold text-gray-900">{games.length}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="mx-auto w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-3">
+                <TrendingUp className="h-6 w-6 text-blue-600" />
+              </div>
+              <p className="text-sm font-medium text-gray-500 mb-1">Em Andamento</p>
+              <p className="text-2xl font-bold text-gray-900">{activeGames.length}</p>
             </div>
           </CardContent>
         </Card>

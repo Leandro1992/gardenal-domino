@@ -21,6 +21,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const usersCheck = await Promise.all(unique.map((id) => db.collection("users").doc(id).get()));
     if (usersCheck.some((d) => !d.exists)) return res.status(400).json({ error: "All players must exist" });
 
+    // Verificar se algum jogador já está em partida ativa
+    const activeGamesSnap = await db.collection("games").where("finished", "==", false).get();
+    const activePlayers = new Set<string>();
+    
+    activeGamesSnap.docs.forEach((doc) => {
+      const data: any = doc.data();
+      (data.teamA || []).forEach((id: string) => activePlayers.add(id));
+      (data.teamB || []).forEach((id: string) => activePlayers.add(id));
+    });
+    
+    const playersInActiveGame = all.filter(id => activePlayers.has(id));
+    if (playersInActiveGame.length > 0) {
+      // Get player names for error message
+      const playerDocs = await Promise.all(
+        playersInActiveGame.map(id => db.collection("users").doc(id).get())
+      );
+      const playerNames = playerDocs.map(doc => doc.data()?.name || "Desconhecido").join(", ");
+      
+      return res.status(400).json({ 
+        error: `Os seguintes jogadores já estão em partidas ativas: ${playerNames}` 
+      });
+    }
+
     const game = {
       createdBy: current.id,
       createdAt: new Date(),
