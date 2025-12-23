@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/useAuth';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { UserPlus, Loader2, Key, Trash2 } from 'lucide-react';
+import { UserPlus, Loader2, Key, Trash2, Edit } from 'lucide-react';
 
 interface User {
   id: string;
@@ -95,6 +95,29 @@ export default function UsersPage() {
       alert('Senha alterada com sucesso!');
     } catch (err: any) {
       alert(err.message);
+    }
+  };
+
+  const handleUpdateName = async (userId: string, currentName: string) => {
+    const newName = prompt('Digite o novo nome:', currentName);
+    if (!newName || newName === currentName) return;
+
+    try {
+      const response = await fetch(`/api/admin/users/${userId}/name`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Erro ao alterar nome');
+      }
+
+      setSuccess('Nome alterado com sucesso!');
+      fetchUsers();
+    } catch (err: any) {
+      setError(err.message);
     }
   };
 
@@ -225,7 +248,16 @@ export default function UsersPage() {
                     <Button
                       variant="secondary"
                       size="sm"
+                      onClick={() => handleUpdateName(u.id, u.name)}
+                      title="Editar nome"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       onClick={() => handleResetPassword(u.id)}
+                      title="Redefinir senha"
                     >
                       <Key className="h-4 w-4" />
                     </Button>

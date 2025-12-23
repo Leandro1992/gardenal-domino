@@ -4,6 +4,13 @@ import FirebaseConnection from "../../../lib/firebaseAdmin";
 
 const db = FirebaseConnection.getInstance().db;
 
+interface User {
+  id: string;
+  name?: string;
+  email: string;
+  role: string;
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -17,7 +24,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     // Buscar todos os usuários
     const usersSnap = await db.collection("users").get();
-    const users = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const users = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
 
     // Buscar todas as partidas finalizadas
     const gamesSnap = await db.collection("games")
