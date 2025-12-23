@@ -1,8 +1,6 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { getCurrentUser } from "../../../lib/auth";
-import FirebaseConnection from "../../../lib/firebaseAdmin";
-
-const db = FirebaseConnection.getInstance().db;
+import supabase from "../../../lib/supabase";
 
 interface User {
   id: string;
@@ -23,25 +21,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     // Buscar todos os usuários
-    const usersSnap = await db.collection("users").get();
-    const users = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+    const { data: users, error: usersError } = await supabase
+      .from("users")
+      .select("id, name, email, role");
+
+    if (usersError) {
+      console.error("Error fetching users:", usersError);
+      return res.status(500).json({ error: "Failed to fetch users" });
+    }
 
     // Buscar todas as partidas finalizadas
-    const gamesSnap = await db.collection("games")
-      .where("finished", "==", true)
-      .get();
+    const { data: games, error: gamesError } = await supabase
+      .from("games")
+      .select("id, team_a, team_b, team_a_total, team_b_total, winner_team, lisa")
+      .eq("finished", true);
+
+    if (gamesError) {
+      console.error("Error fetching games:", gamesError);
+      return res.status(500).json({ error: "Failed to fetch games" });
+    }
 
     // Calcular estatísticas para cada usuário
-    const ranking = users.map(user => {
+    const ranking = (users || []).map((user: User) => {
       let victories = 0;
       let defeats = 0;
       let lisasApplied = 0;
       let lisasTaken = 0;
 
-      gamesSnap.docs.forEach((doc) => {
-        const game: any = doc.data();
-        const teamAIds = game.teamA || [];
-        const teamBIds = game.teamB || [];
+      (games || []).forEach((game: any) => {
+        const teamAIds = game.team_a || [];
+        const teamBIds = game.team_b || [];
         
         const isInTeamA = teamAIds.includes(user.id);
         const isInTeamB = teamBIds.includes(user.id);
@@ -51,13 +60,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
         // Validar que a partida tem winner definido
-        const winnerTeam = game.winnerTeam;
+        const winnerTeam = game.winner_team;
         if (!winnerTeam || (winnerTeam !== 'A' && winnerTeam !== 'B')) {
           return; // Partida inválida
         }
 
-        const scoreA = game.teamA_total || 0;
-        const scoreB = game.teamB_total || 0;
+        const scoreA = game.team_a_total || 0;
+        const scoreB = game.team_b_total || 0;
         
         // Usuário está no Time A
         if (isInTeamA) {

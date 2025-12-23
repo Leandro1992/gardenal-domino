@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { InputWithLabel } from '@/components/ui/input-with-label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserPlus, Loader2, Key, Trash2 } from 'lucide-react';
+import { UserPlus, Loader2, Key, Trash2, Edit } from 'lucide-react';
 
 interface User {
   id: string;

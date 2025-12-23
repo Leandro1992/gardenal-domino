@@ -4,7 +4,8 @@ import { useAuth } from '@/lib/useAuth';
 import { Button } from '@/components/ui/button';
 import { InputWithLabel } from '@/components/ui/input-with-label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Lock, User } from 'lucide-react';
+import { Alert } from '@/components/ui/alert';
+import { Loader2, Lock, User, Check } from 'lucide-react';
 
 export default function SettingsPage() {
   const { user, loading, checkAuth } = useAuth();

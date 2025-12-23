@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { getCurrentUser } from "../../../lib/auth";
-import FirebaseConnection from "../../../lib/firebaseAdmin";
+import supabase from "../../../lib/supabase";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "PUT") {
@@ -23,11 +23,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const db = FirebaseConnection.getInstance().db;
-    await db.collection('users').doc(currentUser.id).update({
-      name: name.trim(),
-      updatedAt: new Date()
-    });
+    const { error } = await supabase
+      .from("users")
+      .update({ name: name.trim() })
+      .eq("id", currentUser.id);
+
+    if (error) {
+      console.error("Error updating profile:", error);
+      return res.status(500).json({ error: "Erro ao atualizar perfil" });
+    }
 
     res.json({ success: true, message: "Nome atualizado com sucesso" });
   } catch (error) {

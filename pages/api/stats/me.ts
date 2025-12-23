@@ -1,8 +1,6 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { getCurrentUser } from "../../../lib/auth";
-import FirebaseConnection from "../../../lib/firebaseAdmin";
-
-const db = FirebaseConnection.getInstance().db;
+import supabase from "../../../lib/supabase";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
@@ -15,20 +13,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Buscar todas as partidas finalizadas onde o usuário participou
-    const gamesSnap = await db.collection("games")
-      .where("finished", "==", true)
-      .get();
+    // Buscar todas as partidas finalizadas
+    const { data: games, error: gamesError } = await supabase
+      .from("games")
+      .select("id, team_a, team_b, team_a_total, team_b_total, winner_team, lisa")
+      .eq("finished", true);
+
+    if (gamesError) {
+      console.error("Error fetching games:", gamesError);
+      return res.status(500).json({ error: "Failed to fetch games" });
+    }
 
     let victories = 0;
     let defeats = 0;
     let lisasApplied = 0;
     let lisasTaken = 0;
 
-    gamesSnap.docs.forEach((doc) => {
-      const game: any = doc.data();
-      const teamAIds = game.teamA || [];
-      const teamBIds = game.teamB || [];
+    (games || []).forEach((game: any) => {
+      const teamAIds = game.team_a || [];
+      const teamBIds = game.team_b || [];
       
       const isInTeamA = teamAIds.includes(currentUser.id);
       const isInTeamB = teamBIds.includes(currentUser.id);
@@ -38,14 +41,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Validar que a partida tem winner definido
-      const winnerTeam = game.winnerTeam;
+      const winnerTeam = game.winner_team;
       if (!winnerTeam || (winnerTeam !== 'A' && winnerTeam !== 'B')) {
-        console.log(`Game ${doc.id} has invalid winnerTeam: ${winnerTeam}`);
+        console.log(`Game ${game.id} has invalid winner_team: ${winnerTeam}`);
         return; // Partida inválida
       }
 
-      const scoreA = game.teamA_total || 0;
-      const scoreB = game.teamB_total || 0;
+      const scoreA = game.team_a_total || 0;
+      const scoreB = game.team_b_total || 0;
       
       // Usuário está no Time A
       if (isInTeamA) {

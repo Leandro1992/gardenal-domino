@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import { useAuth } from '@/lib/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Trophy, TrendingUp, Users, Loader2 } from 'lucide-react';
+import { Plus, Trophy, TrendingUp, Users, Loader2, Target, Flame, Frown } from 'lucide-react';
 import Link from 'next/link';
 
 interface Game {
