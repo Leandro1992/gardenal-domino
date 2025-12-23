@@ -1,8 +1,6 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { getCurrentUser, comparePassword, hashPassword } from "../../../lib/auth";
-import FirebaseConnection from "../../../lib/firebaseAdmin";
-
-const db = FirebaseConnection.getInstance().db;
+import supabase from "../../../lib/supabase";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).end();
@@ -12,12 +10,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { oldPassword, newPassword } = req.body || {};
   if (!oldPassword || !newPassword) return res.status(400).json({ error: "oldPassword and newPassword required" });
 
-  const userDoc = await db.collection("users").doc(current.id).get();
-  const userData: any = userDoc.data();
-  const ok = await comparePassword(oldPassword, userData.passwordHash);
+  const { data: user, error: fetchError } = await supabase
+    .from("users")
+    .select("password_hash")
+    .eq("id", current.id)
+    .single();
+
+  if (fetchError || !user) {
+    return res.status(404).json({ error: "User not found" });
+  }
+
+  const ok = await comparePassword(oldPassword, user.password_hash);
   if (!ok) return res.status(403).json({ error: "Old password incorrect" });
 
   const newHash = await hashPassword(newPassword);
-  await db.collection("users").doc(current.id).update({ passwordHash: newHash, updatedAt: new Date() });
+  const { error: updateError } = await supabase
+    .from("users")
+    .update({ password_hash: newHash })
+    .eq("id", current.id);
+
+  if (updateError) {
+    console.error("Error updating password:", updateError);
+    return res.status(500).json({ error: "Failed to update password" });
+  }
+
   res.json({ ok: true });
 }

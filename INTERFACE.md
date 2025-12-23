@@ -7,9 +7,10 @@ A interface foi desenvolvida com foco em dispositivos móveis, garantindo uma ex
 ## 🎨 Design System
 
 - **Tailwind CSS**: Framework CSS utility-first para estilização responsiva
+- **shadcn/ui**: Componentes UI acessíveis e customizáveis baseados em Radix UI
 - **Lucide React**: Ícones modernos e consistentes
 - **Cores primárias**: Azul (#0ea5e9) como cor principal
-- **Componentes**: Sistema de componentes reutilizáveis
+- **Componentes**: Sistema de componentes reutilizáveis baseado em shadcn/ui
 
 ## 📄 Páginas Implementadas
 
@@ -34,10 +35,13 @@ A interface foi desenvolvida com foco em dispositivos móveis, garantindo uma ex
 
 ### 4. Detalhes da Partida (`/games/[id]`)
 - Placar em tempo real
-- Registro de rodadas
-- Histórico completo de todas as rodadas
+- Botões "Bateu!" em cada card de time para adicionar rodadas
+- Input para pontos do time que "bateu" (adversário recebe 0 automaticamente)
+- Histórico completo de todas as rodadas (ordem reversa: mais recente primeiro)
+- Botão para desfazer última rodada (apenas na última rodada do histórico)
 - Indicador de vitória (quando finalizada)
-- Badge especial para vitória "Lisa"
+- Badge especial para vitória "Lisa" (quando time perdedor tem 0 pontos)
+- Animação especial quando uma partida termina em lisa
 
 ### 5. Todas as Partidas (`/games`)
 - Lista completa de todas as partidas
@@ -75,20 +79,20 @@ A interface foi desenvolvida com foco em dispositivos móveis, garantindo uma ex
 - Badges de status
 - Cores semânticas (verde = sucesso, vermelho = erro, etc.)
 
-### Componentes Reutilizáveis
+### Componentes Reutilizáveis (shadcn/ui)
 
 #### Button
 ```tsx
-<Button variant="primary" size="md" fullWidth>
+<Button variant="default" size="sm">
   Texto do Botão
 </Button>
 ```
-Variantes: `primary`, `secondary`, `danger`, `ghost`
-Tamanhos: `sm`, `md`, `lg`
+Variantes: `default`, `destructive`, `outline`, `secondary`, `ghost`, `link`
+Tamanhos: `sm`, `md`, `lg`, `icon`
 
-#### Input
+#### InputWithLabel
 ```tsx
-<Input
+<InputWithLabel
   label="Email"
   type="email"
   error="Mensagem de erro"
@@ -108,13 +112,19 @@ Tamanhos: `sm`, `md`, `lg`
 </Card>
 ```
 
-#### Alert
+#### Toast (Notificações)
 ```tsx
-<Alert type="success" title="Sucesso!">
-  Mensagem de sucesso
-</Alert>
+import { useToast } from "@/hooks/use-toast"
+
+const { toast } = useToast()
+
+toast({
+  title: "Sucesso!",
+  description: "Operação realizada com sucesso",
+})
 ```
-Tipos: `success`, `error`, `warning`, `info`
+
+Todos os componentes seguem o padrão shadcn/ui e podem ser customizados através de classes Tailwind.
 
 ## 🔐 Controle de Acesso
 
@@ -170,6 +180,7 @@ Todas as páginas estão integradas com as APIs documentadas no README principal
 - `GET /api/games` - Listar partidas
 - `GET /api/games/:id` - Detalhes da partida
 - `POST /api/games/:id/rounds` - Adicionar rodada
+- `DELETE /api/games/:id/rounds` - Desfazer última rodada
 - `GET /api/games/:id/rounds` - Listar rodadas
 
 ## 🚀 Próximos Passos (Melhorias Futuras)

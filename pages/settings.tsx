@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/lib/useAuth';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Alert } from '@/components/ui/Alert';
-import { Loader2, Lock, User, Check } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { InputWithLabel } from '@/components/ui/input-with-label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Loader2, Lock, User } from 'lucide-react';
 
 export default function SettingsPage() {
   const { user, loading, checkAuth } = useAuth();
@@ -206,7 +205,7 @@ export default function SettingsPage() {
               </Alert>
             )}
 
-            <Input
+            <InputWithLabel
               label="Senha Atual"
               type="password"
               value={oldPassword}
@@ -216,7 +215,7 @@ export default function SettingsPage() {
               autoComplete="current-password"
             />
 
-            <Input
+            <InputWithLabel
               label="Nova Senha"
               type="password"
               value={newPassword}
@@ -226,7 +225,7 @@ export default function SettingsPage() {
               autoComplete="new-password"
             />
 
-            <Input
+            <InputWithLabel
               label="Confirmar Nova Senha"
               type="password"
               value={confirmPassword}
@@ -236,8 +235,8 @@ export default function SettingsPage() {
               autoComplete="new-password"
             />
 
-            <Button type="submit" fullWidth disabled={isChangingPassword}>
-              {isChangingPassword ? (
+            <Button type="submit" className="w-full" disabled={isChanging}>
+              {isChanging ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Alterando...

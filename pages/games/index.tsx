@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/lib/useAuth';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Card, CardContent } from '@/components/ui/Card';
-import { Loader2, Trophy, Plus, Filter, Award, Search, Calendar } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Loader2, Trophy, Plus, Filter, Award } from 'lucide-react';
 import Link from 'next/link';
 
 interface Game {
@@ -14,7 +13,7 @@ interface Game {
   scoreA: number;
   scoreB: number;
   finished: boolean;
-  lisa: boolean;
+  lisa: string[]; // Array de UUIDs dos jogadores que fizeram lisa, ou array vazio
   createdAt: any;
 }
 
@@ -102,73 +101,29 @@ export default function GamesPage() {
       </div>
 
       {/* Filters */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="space-y-4">
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              <Button
-                variant={filter === 'all' ? 'primary' : 'secondary'}
-                size="sm"
-                onClick={() => setFilter('all')}
-              >
-                Todas
-              </Button>
-              <Button
-                variant={filter === 'active' ? 'primary' : 'secondary'}
-                size="sm"
-                onClick={() => setFilter('active')}
-              >
-                Em Andamento
-              </Button>
-              <Button
-                variant={filter === 'finished' ? 'primary' : 'secondary'}
-                size="sm"
-                onClick={() => setFilter('finished')}
-              >
-                Finalizadas
-              </Button>
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar por nome do jogador..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                />
-              </div>
-              
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="date"
-                  value={dateFilter}
-                  onChange={(e) => setDateFilter(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-            
-            {(searchQuery || dateFilter) && (
-              <div className="flex gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setDateFilter('');
-                  }}
-                >
-                  Limpar Filtros
-                </Button>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex gap-2 overflow-x-auto pb-2">
+        <Button
+          variant={filter === 'all' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setFilter('all')}
+        >
+          Todas
+        </Button>
+        <Button
+          variant={filter === 'active' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setFilter('active')}
+        >
+          Em Andamento
+        </Button>
+        <Button
+          variant={filter === 'finished' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setFilter('finished')}
+        >
+          Finalizadas
+        </Button>
+      </div>
 
       {/* Games List */}
       {isLoading ? (
@@ -223,7 +178,7 @@ export default function GamesPage() {
                           }`}>
                             {game.finished ? 'Finalizada' : 'Em Andamento'}
                           </span>
-                          {game.lisa && (
+                          {Array.isArray(game.lisa) && game.lisa.length > 0 && (
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                               <Award className="h-3 w-3 mr-1" />
                               Lisa

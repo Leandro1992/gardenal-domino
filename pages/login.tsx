@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
 import { useAuth } from '@/lib/useAuth';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Button } from '@/components/ui/button';
+import { InputWithLabel } from '@/components/ui/input-with-label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Trophy, Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
@@ -78,7 +78,7 @@ export default function LoginPage() {
                 </div>
               )}
 
-              <Input
+              <InputWithLabel
                 label="Email"
                 type="email"
                 value={email}
@@ -88,7 +88,7 @@ export default function LoginPage() {
                 autoComplete="email"
               />
 
-              <Input
+              <InputWithLabel
                 label="Senha"
                 type="password"
                 value={password}
@@ -100,9 +100,8 @@ export default function LoginPage() {
 
               <Button
                 type="submit"
-                fullWidth
+                className="w-full mt-6"
                 disabled={isLoading}
-                className="mt-6"
               >
                 {isLoading ? (
                   <>

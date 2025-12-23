@@ -1,8 +1,6 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import FirebaseConnection from '../../../lib/firebaseAdmin';
-
-const db = FirebaseConnection.getInstance().db;
 import { getCurrentUser } from "../../../lib/auth";
+import supabase from "../../../lib/supabase";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const current = await getCurrentUser(req);
@@ -11,40 +9,63 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!id || typeof id !== "string") return res.status(400).json({ error: "Missing id" });
 
   if (req.method === "GET") {
-    const doc = await db.collection("games").doc(id).get();
-    if (!doc.exists) return res.status(404).json({ error: "Not found" });
-    
-    const gameData: any = doc.data();
-    
+    const { data: game, error: gameError } = await supabase
+      .from("games")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (gameError || !game) {
+      return res.status(404).json({ error: "Not found" });
+    }
+
+    // Get rounds for this game
+    const { data: rounds } = await supabase
+      .from("rounds")
+      .select("*")
+      .eq("game_id", id)
+      .order("round_number", { ascending: true });
+
     // Populate player names for teamA and teamB
-    const teamAIds = gameData.teamA || [];
-    const teamBIds = gameData.teamB || [];
-    
-    const teamAPlayers = await Promise.all(
-      teamAIds.map(async (userId: string) => {
-        const userDoc = await db.collection("users").doc(userId).get();
-        if (!userDoc.exists) return { id: userId, name: "Unknown" };
-        const userData = userDoc.data();
-        return { id: userId, name: userData?.name || userData?.email || "Unknown" };
-      })
+    const teamAIds = game.team_a || [];
+    const teamBIds = game.team_b || [];
+    const allPlayerIds = [...teamAIds, ...teamBIds];
+
+    const { data: playersData } = await supabase
+      .from("users")
+      .select("id, name, email")
+      .in("id", allPlayerIds);
+
+    const playersMap = new Map(
+      (playersData || []).map((p) => [p.id, { id: p.id, name: p.name || p.email || "Unknown" }])
     );
-    
-    const teamBPlayers = await Promise.all(
-      teamBIds.map(async (userId: string) => {
-        const userDoc = await db.collection("users").doc(userId).get();
-        if (!userDoc.exists) return { id: userId, name: "Unknown" };
-        const userData = userDoc.data();
-        return { id: userId, name: userData?.name || userData?.email || "Unknown" };
-      })
-    );
-    
-    return res.json({ 
-      id: doc.id, 
-      ...gameData,
+
+    const teamAPlayers = teamAIds.map((userId: string) => playersMap.get(userId) || { id: userId, name: "Unknown" });
+    const teamBPlayers = teamBIds.map((userId: string) => playersMap.get(userId) || { id: userId, name: "Unknown" });
+
+    // Format rounds for compatibility
+    const formattedRounds = (rounds || []).map((r: any) => ({
+      id: r.id,
+      roundNumber: r.round_number,
+      teamA_points: r.team_a_points,
+      teamB_points: r.team_b_points,
+      recordedAt: r.recorded_at,
+      recordedBy: r.recorded_by,
+    }));
+
+    return res.json({
+      id: game.id,
+      createdBy: game.created_by,
+      createdAt: game.created_at,
       teamA: teamAPlayers,
       teamB: teamBPlayers,
-      scoreA: gameData.teamA_total || 0,
-      scoreB: gameData.teamB_total || 0
+      rounds: formattedRounds,
+      scoreA: game.team_a_total || 0,
+      scoreB: game.team_b_total || 0,
+      finished: game.finished,
+      winnerTeam: game.winner_team,
+      lisa: game.lisa || [],
+      finishedAt: game.finished_at,
     });
   }
 

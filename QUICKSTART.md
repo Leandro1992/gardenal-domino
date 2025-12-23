@@ -27,6 +27,7 @@ npm start
 
 ### Design System
 - **Tailwind CSS** para estilização responsiva
+- **shadcn/ui** para componentes UI acessíveis e consistentes
 - **Lucide React** para ícones consistentes
 - Paleta de cores azul (#0ea5e9) como cor primária
 - Componentes reutilizáveis em `components/ui/`
@@ -90,9 +91,11 @@ A interface foi desenvolvida priorizando dispositivos móveis:
 3. Selecionar 2 jogadores para Time A
 4. Selecionar 2 jogadores para Time B
 5. Click em "Criar Partida"
-6. Adicionar rodadas com os pontos
-7. Sistema finaliza automaticamente quando um time atinge 100 pontos
-8. Marca "Lisa" se o adversário terminou com 0 pontos
+6. Adicionar rodadas clicando em "Bateu!" no card do time que fez pontos
+7. Inserir os pontos do time que "bateu" (o adversário recebe 0 automaticamente)
+8. Sistema finaliza automaticamente quando um time atinge 100 pontos
+9. Marca "Lisa" se o time perdedor terminou com exatamente 0 pontos
+10. É possível desfazer a última rodada clicando no botão de desfazer no histórico
 
 ### Administração
 1. Login como admin
@@ -113,11 +116,19 @@ Após rodar o seed do admin:
 components/
 ├── Layout.tsx              # Layout principal com sidebar/menu
 └── ui/
-    ├── Alert.tsx           # Componente de alertas
-    ├── Button.tsx          # Botões reutilizáveis
-    ├── Card.tsx            # Cards para conteúdo
-    ├── Input.tsx           # Campos de formulário
-    └── Loading.tsx         # Estados de carregamento
+    ├── button.tsx          # Botões (shadcn/ui)
+    ├── input.tsx           # Campos de formulário (shadcn/ui)
+    ├── input-with-label.tsx # Wrapper para Input com label
+    ├── card.tsx            # Cards (shadcn/ui)
+    ├── dialog.tsx          # Modais (shadcn/ui)
+    ├── dropdown-menu.tsx   # Menus dropdown (shadcn/ui)
+    ├── form.tsx            # Formulários (shadcn/ui)
+    ├── table.tsx           # Tabelas (shadcn/ui)
+    ├── select.tsx          # Selects (shadcn/ui)
+    ├── toast.tsx           # Notificações toast (shadcn/ui)
+    ├── toaster.tsx         # Provider de toasts
+    ├── tabs.tsx            # Abas (shadcn/ui)
+    └── label.tsx           # Labels (shadcn/ui)
 ```
 
 ## 🎨 Customização

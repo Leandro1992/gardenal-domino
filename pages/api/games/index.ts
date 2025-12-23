@@ -1,8 +1,6 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { getCurrentUser } from "../../../lib/auth";
-import FirebaseConnection from "../../../lib/firebaseAdmin";
-
-const db = FirebaseConnection.getInstance().db;
+import supabase from "../../../lib/supabase";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const current = await getCurrentUser(req);
@@ -17,106 +15,108 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const unique = Array.from(new Set(all));
     if (unique.length !== 4) return res.status(400).json({ error: "Players must be 4 distinct users" });
 
-    // validate users exist
-    const usersCheck = await Promise.all(unique.map((id) => db.collection("users").doc(id).get()));
-    if (usersCheck.some((d) => !d.exists)) return res.status(400).json({ error: "All players must exist" });
+    // Validate users exist
+    const { data: users, error: usersError } = await supabase
+      .from("users")
+      .select("id")
+      .in("id", unique);
 
-    // Verificar se algum jogador já está em partida ativa
-    const activeGamesSnap = await db.collection("games").where("finished", "==", false).get();
-    const activePlayers = new Set<string>();
-    
-    activeGamesSnap.docs.forEach((doc) => {
-      const data: any = doc.data();
-      (data.teamA || []).forEach((id: string) => activePlayers.add(id));
-      (data.teamB || []).forEach((id: string) => activePlayers.add(id));
-    });
-    
-    const playersInActiveGame = all.filter(id => activePlayers.has(id));
-    if (playersInActiveGame.length > 0) {
-      // Get player names for error message
-      const playerDocs = await Promise.all(
-        playersInActiveGame.map(id => db.collection("users").doc(id).get())
-      );
-      const playerNames = playerDocs.map(doc => doc.data()?.name || "Desconhecido").join(", ");
-      
-      return res.status(400).json({ 
-        error: `Os seguintes jogadores já estão em partidas ativas: ${playerNames}` 
-      });
+    if (usersError || !users || users.length !== 4) {
+      return res.status(400).json({ error: "All players must exist" });
     }
 
-    const game = {
-      createdBy: current.id,
-      createdAt: new Date(),
-      teamA,
-      teamB,
-      rounds: [],
-      teamA_total: 0,
-      teamB_total: 0,
-      finished: false,
-    };
-    const ref = await db.collection("games").add(game);
-    
-    // Get player names for response
-    const players = await Promise.all(
-      [...teamA, ...teamB].map(async (id) => {
-        const userDoc = await db.collection("users").doc(id).get();
-        const userData = userDoc.data();
-        return { id, name: userData?.name || userData?.email || "Unknown" };
+    // Create game
+    const { data: newGame, error: gameError } = await supabase
+      .from("games")
+      .insert({
+        created_by: current.id,
+        team_a: teamA,
+        team_b: teamB,
+        team_a_total: 0,
+        team_b_total: 0,
+        finished: false,
       })
+      .select()
+      .single();
+
+    if (gameError || !newGame) {
+      console.error("Error creating game:", gameError);
+      return res.status(500).json({ error: "Failed to create game" });
+    }
+
+    // Get player names for response
+    const { data: playersData } = await supabase
+      .from("users")
+      .select("id, name, email")
+      .in("id", [...teamA, ...teamB]);
+
+    const playersMap = new Map(
+      (playersData || []).map((p) => [p.id, { id: p.id, name: p.name || p.email || "Unknown" }])
     );
-    
-    const playersMap = new Map(players.map(p => [p.id, p]));
-    
-    return res.status(201).json({ 
+
+    return res.status(201).json({
       game: {
-        id: ref.id,
-        ...game,
-        teamA: teamA.map(id => playersMap.get(id)),
-        teamB: teamB.map(id => playersMap.get(id)),
-        scoreA: 0,
-        scoreB: 0
-      }
+        id: newGame.id,
+        createdBy: newGame.created_by,
+        createdAt: newGame.created_at,
+        teamA: teamA.map((id) => playersMap.get(id) || { id, name: "Unknown" }),
+        teamB: teamB.map((id) => playersMap.get(id) || { id, name: "Unknown" }),
+        scoreA: newGame.team_a_total || 0,
+        scoreB: newGame.team_b_total || 0,
+        finished: newGame.finished,
+      },
     });
   }
 
   if (req.method === "GET") {
-    const snap = await db.collection("games").orderBy("createdAt", "desc").limit(50).get();
-    
+    const { data: games, error } = await supabase
+      .from("games")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (error) {
+      console.error("Error fetching games:", error);
+      return res.status(500).json({ error: "Failed to fetch games" });
+    }
+
+    if (!games || games.length === 0) {
+      return res.json({ games: [] });
+    }
+
     // Get all unique user IDs from all games
     const allUserIds = new Set<string>();
-    snap.docs.forEach((doc) => {
-      const data: any = doc.data();
-      (data.teamA || []).forEach((id: string) => allUserIds.add(id));
-      (data.teamB || []).forEach((id: string) => allUserIds.add(id));
-    });
-    
+    games.forEach((game: any) => {
+      (game.team_a || []).forEach((id: string) => allUserIds.add(id));
+      (game.team_b || []).forEach((id: string) => allUserIds.add(id));
+    })
+
     // Fetch all users in one batch
-    const userDocs = await Promise.all(
-      Array.from(allUserIds).map((id) => db.collection("users").doc(id).get())
+    const { data: usersData } = await supabase
+      .from("users")
+      .select("id, name, email")
+      .in("id", Array.from(allUserIds));
+
+    const usersMap = new Map(
+      (usersData || []).map((u) => [u.id, { id: u.id, name: u.name || u.email || "Unknown" }])
     );
-    
-    const usersMap = new Map();
-    userDocs.forEach((doc) => {
-      if (doc.exists) {
-        const data = doc.data();
-        usersMap.set(doc.id, { id: doc.id, name: data?.name || data?.email || "Unknown" });
-      }
-    });
-    
+
     // Map games with populated player data
-    const games = snap.docs.map((d) => {
-      const data: any = d.data();
-      return {
-        id: d.id,
-        ...data,
-        teamA: (data.teamA || []).map((id: string) => usersMap.get(id) || { id, name: "Unknown" }),
-        teamB: (data.teamB || []).map((id: string) => usersMap.get(id) || { id, name: "Unknown" }),
-        scoreA: data.teamA_total || 0,
-        scoreB: data.teamB_total || 0
-      };
-    });
-    
-    return res.json({ games });
+    const formattedGames = games.map((game: any) => ({
+      id: game.id,
+      createdBy: game.created_by,
+      createdAt: game.created_at,
+      teamA: (game.team_a || []).map((id: string) => usersMap.get(id) || { id, name: "Unknown" }),
+      teamB: (game.team_b || []).map((id: string) => usersMap.get(id) || { id, name: "Unknown" }),
+      scoreA: game.team_a_total || 0,
+      scoreB: game.team_b_total || 0,
+      finished: game.finished,
+      winnerTeam: game.winner_team,
+      lisa: game.lisa || [],
+      finishedAt: game.finished_at,
+    }));
+
+    return res.json({ games: formattedGames });
   }
 
   return res.status(405).end();

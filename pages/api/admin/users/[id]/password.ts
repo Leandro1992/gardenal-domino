@@ -1,8 +1,6 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { getCurrentUser, hashPassword } from "../../../../../lib/auth";
-import FirebaseConnection from "../../../../../lib/firebaseAdmin";
-
-const db = FirebaseConnection.getInstance().db;
+import supabase from "../../../../../lib/supabase";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const current = (await getCurrentUser(req)) as { id: string; role?: string };
@@ -13,8 +11,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === "PUT") {
     const { newPassword } = req.body || {};
     if (!newPassword) return res.status(400).json({ error: "newPassword required" });
+    
     const newHash = await hashPassword(newPassword);
-    await db.collection("users").doc(id).update({ passwordHash: newHash, updatedAt: new Date() });
+    const { error } = await supabase
+      .from("users")
+      .update({ password_hash: newHash })
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error updating password:", error);
+      return res.status(500).json({ error: "Failed to update password" });
+    }
+
     return res.json({ ok: true });
   }
 

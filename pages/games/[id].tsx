@@ -2,10 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
 import { useAuth } from '@/lib/useAuth';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Loader2, ArrowLeft, Plus, Trophy, Award } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { InputWithLabel } from '@/components/ui/input-with-label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Loader2, ArrowLeft, Trophy, Award, Undo2 } from 'lucide-react';
 import Link from 'next/link';
 
 interface Player {
@@ -27,7 +27,7 @@ interface Game {
   scoreA: number;
   scoreB: number;
   finished: boolean;
-  lisa: boolean;
+  lisa: string[]; // Array de UUIDs dos jogadores que fizeram lisa, ou array vazio
   rounds: Round[];
   createdAt: any;
 }
@@ -38,9 +38,9 @@ export default function GameDetailPage() {
   const { id } = router.query;
   const [game, setGame] = useState<Game | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [showAddRound, setShowAddRound] = useState(false);
-  const [pointsA, setPointsA] = useState('');
-  const [pointsB, setPointsB] = useState('');
+  const [showAddRoundTeamA, setShowAddRoundTeamA] = useState(false);
+  const [showAddRoundTeamB, setShowAddRoundTeamB] = useState(false);
+  const [opponentPoints, setOpponentPoints] = useState('');
   const [error, setError] = useState('');
   const [adding, setAdding] = useState(false);
   const [showLisaAnimation, setShowLisaAnimation] = useState(false);
@@ -76,29 +76,31 @@ export default function GameDetailPage() {
     }
   };
 
-  const handleAddRound = async (e: React.FormEvent) => {
+  const handleAddRound = async (e: React.FormEvent, teamThatBatted: 'A' | 'B') => {
     e.preventDefault();
     setError('');
 
-    // Considera valores vazios como zero
-    const teamA_points = pointsA === '' ? 0 : parseInt(pointsA);
-    const teamB_points = pointsB === '' ? 0 : parseInt(pointsB);
+    const pointsNum = opponentPoints === '' ? 0 : parseInt(opponentPoints);
 
-    // Valida se pelo menos um campo foi preenchido
-    if (pointsA === '' && pointsB === '') {
-      setError('Pelo menos um time deve ter pontuação');
+    if (opponentPoints === '') {
+      setError('Digite sua pontuação');
       return;
     }
 
-    if (isNaN(teamA_points) || isNaN(teamB_points)) {
-      setError('Digite valores numéricos válidos');
+    if (isNaN(pointsNum)) {
+      setError('Digite um valor numérico válido');
       return;
     }
 
-    if (teamA_points < 0 || teamB_points < 0) {
+    if (pointsNum < 0) {
       setError('Os pontos não podem ser negativos');
       return;
     }
+
+    // Se Time A bateu, Time A recebe os pontos informados e Time B recebe 0
+    // Se Time B bateu, Time B recebe os pontos informados e Time A recebe 0
+    const teamA_points = teamThatBatted === 'A' ? pointsNum : 0;
+    const teamB_points = teamThatBatted === 'B' ? pointsNum : 0;
 
     setAdding(true);
     try {
@@ -115,16 +117,53 @@ export default function GameDetailPage() {
 
       const responseData = await response.json();
       
-      setPointsA('');
-      setPointsB('');
-      setShowAddRound(false);
+      setOpponentPoints('');
+      setShowAddRoundTeamA(false);
+      setShowAddRoundTeamB(false);
       
       // Se a partida terminou em lisa, mostra animação
-      if (responseData.game?.finished && responseData.game?.lisa) {
+      // lisa é um array de UUIDs, só mostra se tiver elementos
+      if (responseData.game?.finished && Array.isArray(responseData.game?.lisa) && responseData.game.lisa.length > 0) {
         setShowLisaAnimation(true);
         setTimeout(() => setShowLisaAnimation(false), 5000);
       }
       
+      await fetchGame();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const handleCancelRound = () => {
+    setShowAddRoundTeamA(false);
+    setShowAddRoundTeamB(false);
+    setOpponentPoints('');
+    setError('');
+  };
+
+  const handleUndoLastRound = async () => {
+    if (!game || !game.rounds || game.rounds.length === 0) {
+      return;
+    }
+
+    if (!confirm('Tem certeza que deseja desfazer a última rodada?')) {
+      return;
+    }
+
+    setAdding(true);
+    setError('');
+    try {
+      const response = await fetch(`/api/games/${id}/rounds`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Erro ao desfazer rodada');
+      }
+
       await fetchGame();
     } catch (err: any) {
       setError(err.message);
@@ -214,7 +253,7 @@ export default function GameDetailPage() {
               <p className="font-semibold text-green-900">
                 Time {winner} Venceu!
               </p>
-              {game.lisa && (
+              {Array.isArray(game.lisa) && game.lisa.length > 0 && (
                 <p className="text-sm text-green-700 flex items-center gap-1 mt-1">
                   <Award className="h-4 w-4" />
                   Vitória Lisa (adversário com 0 pontos)
@@ -241,6 +280,62 @@ export default function GameDetailPage() {
                   <Trophy className="h-8 w-8 text-green-600 mx-auto" />
                 </div>
               )}
+              {!game.finished && (
+                <div className="mt-4">
+                  {!showAddRoundTeamA ? (
+                    <Button
+                      className="w-full"
+                      onClick={() => {
+                        setShowAddRoundTeamA(true);
+                        setShowAddRoundTeamB(false);
+                        setError('');
+                      }}
+                    >
+                      Bateu!
+                    </Button>
+                  ) : (
+                    <div className="space-y-2">
+                      <InputWithLabel
+                        label="Sua pontuação (Time A)"
+                        type="number"
+                        min="0"
+                        value={opponentPoints}
+                        onChange={(e) => setOpponentPoints(e.target.value)}
+                        placeholder="0"
+                        autoFocus
+                      />
+                      {error && (
+                        <p className="text-sm text-red-600">{error}</p>
+                      )}
+                      <div className="flex gap-2">
+                        <Button
+                          className="flex-1"
+                          size="sm"
+                          onClick={(e) => handleAddRound(e, 'A')}
+                          disabled={adding}
+                        >
+                          {adding ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Salvando...
+                            </>
+                          ) : (
+                            'Salvar'
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleCancelRound}
+                          disabled={adding}
+                        >
+                          Cancelar
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -259,80 +354,67 @@ export default function GameDetailPage() {
                   <Trophy className="h-8 w-8 text-green-600 mx-auto" />
                 </div>
               )}
+              {!game.finished && (
+                <div className="mt-4">
+                  {!showAddRoundTeamB ? (
+                    <Button
+                      className="w-full"
+                      onClick={() => {
+                        setShowAddRoundTeamB(true);
+                        setShowAddRoundTeamA(false);
+                        setError('');
+                      }}
+                    >
+                      Bateu!
+                    </Button>
+                  ) : (
+                    <div className="space-y-2">
+                      <InputWithLabel
+                        label="Sua pontuação (Time B)"
+                        type="number"
+                        min="0"
+                        value={opponentPoints}
+                        onChange={(e) => setOpponentPoints(e.target.value)}
+                        placeholder="0"
+                        autoFocus
+                      />
+                      {error && (
+                        <p className="text-sm text-red-600">{error}</p>
+                      )}
+                      <div className="flex gap-2">
+                        <Button
+                          className="flex-1"
+                          size="sm"
+                          onClick={(e) => handleAddRound(e, 'B')}
+                          disabled={adding}
+                        >
+                          {adding ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Salvando...
+                            </>
+                          ) : (
+                            'Salvar'
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleCancelRound}
+                          disabled={adding}
+                        >
+                          Cancelar
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {!game.finished && (
-        <>
-          {!showAddRound ? (
-            <Button fullWidth size="lg" onClick={() => setShowAddRound(true)}>
-              <Plus className="mr-2 h-5 w-5" />
-              Adicionar Rodada
-            </Button>
-          ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle>Nova Rodada</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleAddRound} className="space-y-4">
-                  {error && (
-                    <div className="rounded-lg bg-red-50 p-4">
-                      <p className="text-sm text-red-800">{error}</p>
-                    </div>
-                  )}
-
-                  <Input
-                    label={`Pontos ${game.teamA.map(p => p.name).join(' & ')}`}
-                    type="number"
-                    min="0"
-                    value={pointsA}
-                    onChange={(e) => setPointsA(e.target.value)}
-                    placeholder="0"
-                  />
-
-                  <Input
-                    label={`Pontos ${game.teamB.map(p => p.name).join(' & ')}`}
-                    type="number"
-                    min="0"
-                    value={pointsB}
-                    onChange={(e) => setPointsB(e.target.value)}
-                    placeholder="0"
-                  />
-
-                  <div className="flex gap-3">
-                    <Button type="submit" fullWidth disabled={adding}>
-                      {adding ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Salvando...
-                        </>
-                      ) : (
-                        'Salvar Rodada'
-                      )}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      fullWidth
-                      onClick={() => {
-                        setShowAddRound(false);
-                        setError('');
-                        setPointsA('');
-                        setPointsB('');
-                      }}
-                    >
-                      Cancelar
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-          )}
-        </>
-      )}
 
       {/* Histórico de Rodadas */}
       <Card>
@@ -342,37 +424,49 @@ export default function GameDetailPage() {
         <CardContent>
           {game.rounds && game.rounds.length > 0 ? (
             <div className="space-y-3">
-              {game.rounds.map((round, index) => (
-                <div
-                  key={round.id}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                >
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm font-medium text-gray-500 w-16">
-                      Rodada {index + 1}
-                    </span>
-                    <div className="flex items-center gap-6">
-                      <div className="text-center">
-                        <p className="text-xs text-gray-500 mb-1">
-                          {game.teamA.map(p => p.name).join(' & ')}
-                        </p>
-                        <p className="text-lg font-bold text-gray-900">
-                          {round.teamA_points}
-                        </p>
-                      </div>
-                      <span className="text-gray-400">×</span>
-                      <div className="text-center">
-                        <p className="text-xs text-gray-500 mb-1">
-                          {game.teamB.map(p => p.name).join(' & ')}
-                        </p>
-                        <p className="text-lg font-bold text-gray-900">
-                          {round.teamB_points}
-                        </p>
+              {[...game.rounds].reverse().map((round, index) => {
+                const roundNumber = game.rounds.length - index;
+                const isLastRound = index === 0; // Primeiro item do array invertido é a última rodada
+                return (
+                  <div
+                    key={round.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                  >
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm font-medium text-gray-500 w-16">
+                        Rodada {roundNumber}
+                      </span>
+                      <div className="flex items-center gap-6">
+                        <div className="text-center">
+                          <p className="text-xs text-gray-500 mb-1">Time A</p>
+                          <p className="text-lg font-bold text-gray-900">
+                            {round.teamA_points}
+                          </p>
+                        </div>
+                        <span className="text-gray-400">×</span>
+                        <div className="text-center">
+                          <p className="text-xs text-gray-500 mb-1">Time B</p>
+                          <p className="text-lg font-bold text-gray-900">
+                            {round.teamB_points}
+                          </p>
+                        </div>
                       </div>
                     </div>
+                    {isLastRound && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={handleUndoLastRound}
+                        disabled={adding}
+                        className="h-7 px-2 text-xs"
+                        title="Desfazer última rodada"
+                      >
+                        <Undo2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <p className="text-center text-gray-500 py-6">
