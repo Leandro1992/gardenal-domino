@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
+import Image from 'next/image';
 import { useAuth } from '@/lib/useAuth';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -42,6 +43,7 @@ export default function GameDetailPage() {
   const [pointsB, setPointsB] = useState('');
   const [error, setError] = useState('');
   const [adding, setAdding] = useState(false);
+  const [showLisaAnimation, setShowLisaAnimation] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -78,8 +80,15 @@ export default function GameDetailPage() {
     e.preventDefault();
     setError('');
 
-    const teamA_points = parseInt(pointsA);
-    const teamB_points = parseInt(pointsB);
+    // Considera valores vazios como zero
+    const teamA_points = pointsA === '' ? 0 : parseInt(pointsA);
+    const teamB_points = pointsB === '' ? 0 : parseInt(pointsB);
+
+    // Valida se pelo menos um campo foi preenchido
+    if (pointsA === '' && pointsB === '') {
+      setError('Pelo menos um time deve ter pontuação');
+      return;
+    }
 
     if (isNaN(teamA_points) || isNaN(teamB_points)) {
       setError('Digite valores numéricos válidos');
@@ -104,10 +113,19 @@ export default function GameDetailPage() {
         throw new Error(data.message || 'Erro ao adicionar rodada');
       }
 
+      const responseData = await response.json();
+      
       setPointsA('');
       setPointsB('');
       setShowAddRound(false);
-      fetchGame();
+      
+      // Se a partida terminou em lisa, mostra animação
+      if (responseData.game?.finished && responseData.game?.lisa) {
+        setShowLisaAnimation(true);
+        setTimeout(() => setShowLisaAnimation(false), 5000);
+      }
+      
+      await fetchGame();
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -145,7 +163,32 @@ export default function GameDetailPage() {
     : null;
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <>
+      {/* Animação de Lisa */}
+      {showLisaAnimation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 animate-fade-in">
+          <div className="text-center animate-bounce">
+            <div className="mb-6">
+              <Image 
+                src="/ivo.jpeg" 
+                alt="Lisa!" 
+                width={300} 
+                height={300}
+                className="mx-auto rounded-full shadow-2xl"
+                priority
+              />
+            </div>
+            <h2 className="text-6xl font-bold text-white mb-4 animate-pulse">
+              LISAAAA! 🎉
+            </h2>
+            <p className="text-2xl text-white">
+              Vitória Impecável!
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-6 max-w-2xl mx-auto">
       <div className="flex items-center gap-4">
         <Link href="/">
           <Button variant="ghost" size="sm">
@@ -257,7 +300,6 @@ export default function GameDetailPage() {
                     value={pointsA}
                     onChange={(e) => setPointsA(e.target.value)}
                     placeholder="0"
-                    required
                   />
 
                   <Input
@@ -267,7 +309,6 @@ export default function GameDetailPage() {
                     value={pointsB}
                     onChange={(e) => setPointsB(e.target.value)}
                     placeholder="0"
-                    required
                   />
 
                   <div className="flex gap-3">
@@ -345,6 +386,7 @@ export default function GameDetailPage() {
           )}
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </>
   );
 }

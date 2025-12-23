@@ -74,8 +74,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     tx.update(gameRef, update);
+    return update;
   })
-  .then(() => res.json({ ok: true }))
+  .then(async (updatedData) => {
+    // Buscar dados completos da partida atualizada
+    const snap = await gameRef.get();
+    const gameData = snap.data();
+    res.json({ 
+      ok: true, 
+      game: {
+        ...gameData,
+        id: snap.id,
+        lisa: Array.isArray(updatedData.lisa) && updatedData.lisa.length > 0,
+        finished: updatedData.finished || false
+      }
+    });
+  })
   .catch((err) => {
     console.error("Error adding round:", err);
     const message = err.message === "Game not found" || err.message === "Game already finished" 
