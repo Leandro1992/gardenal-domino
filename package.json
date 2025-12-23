@@ -2,12 +2,17 @@
   "name": "gardenal-domino",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start -p 3000",
     "seed-admin": "tsx scripts/seed-admin.ts",
-    "seed-sample": "tsx scripts/seed-sample-data.ts"
+    "seed-sample": "tsx scripts/seed-sample-data.ts",
+    "vercel-build": "next build"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
