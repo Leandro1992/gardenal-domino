@@ -236,8 +236,8 @@ export default function SettingsPage() {
               autoComplete="new-password"
             />
 
-            <Button type="submit" className="w-full" disabled={isChanging}>
-              {isChanging ? (
+            <Button type="submit" className="w-full" disabled={isChangingPassword}>
+              {isChangingPassword ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Alterando...
