@@ -17,6 +17,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const unique = Array.from(new Set(all));
     if (unique.length !== 4) return res.status(400).json({ error: "Players must be 4 distinct users" });
 
+    // Validar que o usuário está na partida (exceto se for admin)
+    if (current.role !== "admin" && !all.includes(current.id)) {
+      return res.status(403).json({ 
+        error: "Você só pode criar partidas nas quais você é um dos jogadores" 
+      });
+    }
+
     // validate users exist
     const usersCheck = await Promise.all(unique.map((id) => db.collection("users").doc(id).get()));
     if (usersCheck.some((d) => !d.exists)) return res.status(400).json({ error: "All players must exist" });

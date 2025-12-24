@@ -11,8 +11,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== "POST") return res.status(405).end();
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: "email and password required" });
-  console.log("Buscando usuário no banco de dados", email, password);
-  const q = await db.collection("users").where("email", "==", email).limit(1).get();
+  
+  // Se o email não contém @, adiciona @gardenal.com
+  const emailToSearch = email.includes('@') ? email : `${email}@gardenal.com`;
+  
+  console.log("Buscando usuário no banco de dados", emailToSearch, password);
+  const q = await db.collection("users").where("email", "==", emailToSearch).limit(1).get();
   console.log("Query executada", q.empty);
   if (q.empty) return res.status(401).json({ error: "Invalid credentials" });
   const doc = q.docs[0];

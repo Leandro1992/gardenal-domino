@@ -79,13 +79,13 @@ export default function LoginPage() {
               )}
 
               <Input
-                label="Email"
-                type="email"
+                label="Usuário"
+                type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="seu@email.com"
+                placeholder="seu-usuario ou email@completo.com"
                 required
-                autoComplete="email"
+                autoComplete="username"
               />
 
               <Input

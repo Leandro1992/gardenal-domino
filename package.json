@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start -p ${PORT:-3000}",
-    "seed-admin": "ts-node scripts/seed-admin.ts",
+    "seed-admin": "ts-node --compiler-options {\\\"module\\\":\\\"commonjs\\\"} scripts/seed-admin.ts",
     "heroku-postbuild": "npm run build"
   },
   "dependencies": {

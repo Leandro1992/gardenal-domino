@@ -35,10 +35,15 @@ export default function NewGamePage() {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch('/api/admin/users');
+      const response = await fetch('/api/users');
       if (response.ok) {
         const data = await response.json();
         setUsers(data.users || []);
+        
+        // Adicionar automaticamente o usuário logado no Time A (se não for admin criando para outros)
+        if (user && !teamA.includes(user.id)) {
+          setTeamA([user.id]);
+        }
       }
     } catch (error) {
       console.error('Erro ao carregar usuários:', error);
