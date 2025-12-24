@@ -45,6 +45,7 @@ export default function GameDetailPage() {
   const [adding, setAdding] = useState(false);
   const [showLisaAnimation, setShowLisaAnimation] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deletingRound, setDeletingRound] = useState<number | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -154,6 +155,30 @@ export default function GameDetailPage() {
     } catch (err: any) {
       setError(err.message);
       setDeleting(false);
+    }
+  };
+
+  const handleDeleteRound = async (roundNumber: number) => {
+    if (!confirm(`Tem certeza que deseja excluir a rodada ${roundNumber}?`)) {
+      return;
+    }
+
+    setDeletingRound(roundNumber);
+    try {
+      const response = await fetch(`/api/games/${id}/rounds/${roundNumber}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Erro ao excluir rodada');
+      }
+
+      await fetchGame();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setDeletingRound(null);
     }
   };
 
@@ -371,7 +396,7 @@ export default function GameDetailPage() {
                   key={round.id}
                   className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4 flex-1">
                     <span className="text-sm font-medium text-gray-500 w-16">
                       Rodada {index + 1}
                     </span>
@@ -395,6 +420,24 @@ export default function GameDetailPage() {
                       </div>
                     </div>
                   </div>
+                  {!game.finished && (
+                    <button
+                      onClick={() => handleDeleteRound(index + 1)}
+                      disabled={deletingRound === index + 1}
+                      className="ml-4 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                      title="Excluir rodada"
+                    >
+                      {deletingRound === index + 1 ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M3 6h18"></path>
+                          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                        </svg>
+                      )}
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
