@@ -24,6 +24,7 @@ export default function NewGamePage() {
   
   const [teamA, setTeamA] = useState<string[]>([]);
   const [teamB, setTeamB] = useState<string[]>([]);
+  const [playersInActiveGames, setPlayersInActiveGames] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!loading && !user) {
@@ -35,15 +36,46 @@ export default function NewGamePage() {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch('/api/users');
-      if (response.ok) {
-        const data = await response.json();
+      // Buscar usuários e partidas ativas em paralelo
+      const [usersResponse, gamesResponse] = await Promise.all([
+        fetch('/api/users'),
+        fetch('/api/games')
+      ]);
+      
+      if (usersResponse.ok) {
+        const data = await usersResponse.json();
         setUsers(data.users || []);
         
         // Adicionar automaticamente o usuário logado no Time A (se não for admin criando para outros)
         if (user && !teamA.includes(user.id)) {
           setTeamA([user.id]);
         }
+      }
+      
+      // Identificar jogadores em partidas ativas
+      if (gamesResponse.ok) {
+        const gamesData = await gamesResponse.json();
+        const activeGames = (gamesData.games || []).filter((g: any) => !g.finished);
+        const busyPlayers = new Set<string>();
+        
+        activeGames.forEach((game: any) => {
+          (game.teamA || []).forEach((player: any) => {
+            if (typeof player === 'string') {
+              busyPlayers.add(player);
+            } else if (player?.id) {
+              busyPlayers.add(player.id);
+            }
+          });
+          (game.teamB || []).forEach((player: any) => {
+            if (typeof player === 'string') {
+              busyPlayers.add(player);
+            } else if (player?.id) {
+              busyPlayers.add(player.id);
+            }
+          });
+        });
+        
+        setPlayersInActiveGames(busyPlayers);
       }
     } catch (error) {
       console.error('Erro ao carregar usuários:', error);
@@ -88,15 +120,32 @@ export default function NewGamePage() {
         body: JSON.stringify({ teamA, teamB }),
       });
 
+      const data = await response.json();
+      
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || 'Erro ao criar partida');
+        // Tratamento de erros específicos
+        if (response.status === 400) {
+          if (data.error?.includes('já estão em partidas ativas')) {
+            setError(`⚠️ Não foi possível criar a partida: ${data.error}`);
+          } else if (data.error?.includes('Players must be 4 distinct users')) {
+            setError('Os 4 jogadores devem ser pessoas diferentes');
+          } else if (data.error?.includes('All players must exist')) {
+            setError('Todos os jogadores selecionados devem existir no sistema');
+          } else {
+            setError(data.error || 'Erro de validação ao criar partida');
+          }
+        } else if (response.status === 401) {
+          setError('Você precisa estar autenticado para criar uma partida');
+        } else {
+          setError(data.error || 'Erro ao criar partida. Tente novamente.');
+        }
+        return;
       }
 
-      const data = await response.json();
       router.push(`/games/${data.game.id}`);
     } catch (err: any) {
-      setError(err.message);
+      console.error('Erro ao criar partida:', err);
+      setError('Erro de conexão. Verifique sua internet e tente novamente.');
     } finally {
       setCreating(false);
     }
@@ -247,25 +296,39 @@ export default function NewGamePage() {
                 const inTeamA = teamA.includes(u.id);
                 const inTeamB = teamB.includes(u.id);
                 const selected = inTeamA || inTeamB;
+                const isInActiveGame = playersInActiveGames.has(u.id);
 
                 return (
                   <div
                     key={u.id}
                     className={`flex items-center justify-between p-3 rounded-lg border-2 transition-colors ${
-                      selected
+                      isInActiveGame
+                        ? 'border-gray-300 bg-gray-100 opacity-60'
+                        : selected
                         ? inTeamA
                           ? 'border-primary-300 bg-primary-50'
                           : 'border-blue-300 bg-blue-50'
                         : 'border-gray-200 bg-white'
                     }`}
                   >
-                    <span className="font-medium text-gray-900">{u.name}</span>
+                    <div className="flex flex-col">
+                      <span className={`font-medium ${
+                        isInActiveGame ? 'text-gray-500' : 'text-gray-900'
+                      }`}>
+                        {u.name}
+                      </span>
+                      {isInActiveGame && (
+                        <span className="text-xs text-gray-500 mt-0.5">
+                          🎮 Em partida ativa
+                        </span>
+                      )}
+                    </div>
                     <div className="flex gap-2">
                       <Button
                         size="sm"
                         variant={inTeamA ? 'primary' : 'secondary'}
                         onClick={() => handleTogglePlayer(u.id, 'A')}
-                        disabled={teamA.length >= 2 && !inTeamA}
+                        disabled={isInActiveGame || (teamA.length >= 2 && !inTeamA)}
                       >
                         {inTeamA ? '✓ Time A' : 'Time A'}
                       </Button>
@@ -273,7 +336,7 @@ export default function NewGamePage() {
                         size="sm"
                         variant={inTeamB ? 'primary' : 'secondary'}
                         onClick={() => handleTogglePlayer(u.id, 'B')}
-                        disabled={teamB.length >= 2 && !inTeamB}
+                        disabled={isInActiveGame || (teamB.length >= 2 && !inTeamB)}
                       >
                         {inTeamB ? '✓ Time B' : 'Time B'}
                       </Button>
