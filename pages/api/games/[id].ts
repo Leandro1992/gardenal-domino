@@ -48,5 +48,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   }
 
+  // DELETE - Cancelar partida (apenas admin)
+  if (req.method === "DELETE") {
+    if (current.role !== "admin") {
+      return res.status(403).json({ error: "Apenas administradores podem cancelar partidas" });
+    }
+
+    const doc = await db.collection("games").doc(id).get();
+    if (!doc.exists) return res.status(404).json({ error: "Partida não encontrada" });
+
+    await db.collection("games").doc(id).delete();
+    return res.json({ message: "Partida cancelada com sucesso" });
+  }
+
   return res.status(405).end();
 }

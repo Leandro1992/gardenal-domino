@@ -44,6 +44,7 @@ export default function GameDetailPage() {
   const [error, setError] = useState('');
   const [adding, setAdding] = useState(false);
   const [showLisaAnimation, setShowLisaAnimation] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -133,6 +134,29 @@ export default function GameDetailPage() {
     }
   };
 
+  const handleDeleteGame = async () => {
+    if (!confirm('Tem certeza que deseja cancelar esta partida? Esta ação não pode ser desfeita.')) {
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      const response = await fetch(`/api/games/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Erro ao cancelar partida');
+      }
+
+      router.push('/');
+    } catch (err: any) {
+      setError(err.message);
+      setDeleting(false);
+    }
+  };
+
   if (loading || !user || isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -156,11 +180,11 @@ export default function GameDetailPage() {
     );
   }
 
-  // O vencedor é quem NÃO atingiu 100 pontos (adversário perdeu ao chegar a 100)
+  // O vencedor é quem atingiu 100+ pontos primeiro
   const winner = game.finished
     ? game.scoreA >= 100
-      ? 'B'  // Time A chegou a 100, então Time B venceu
-      : 'A'  // Time B chegou a 100, então Time A venceu
+      ? 'A'  // Time A chegou a 100+, Time A venceu
+      : 'B'  // Time B chegou a 100+, Time B venceu
     : null;
 
   return (
@@ -381,6 +405,37 @@ export default function GameDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Botão de Cancelar Partida (apenas admin) */}
+      {user?.role === 'admin' && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-red-900">Zona de Perigo</p>
+                <p className="text-sm text-red-700">
+                  Cancelar esta partida permanentemente
+                </p>
+              </div>
+              <Button
+                variant="secondary"
+                onClick={handleDeleteGame}
+                disabled={deleting}
+                className="bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700"
+              >
+                {deleting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Cancelando...
+                  </>
+                ) : (
+                  'Cancelar Partida'
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       </div>
     </>
   );

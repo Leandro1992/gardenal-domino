@@ -50,17 +50,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Usuário está no Time A
       if (isInTeamA) {
         if (winnerTeam === 'A') {
-          // Time A ganhou (Time B chegou a 100 primeiro)
+          // Time A ganhou (atingiu 100+ primeiro)
           victories++;
-          // Lisa aplicada: você manteve 0 pontos E fez adversário chegar a 100
-          if (scoreA === 0 && scoreB >= 100) {
+          // Lisa aplicada: você atingiu 100+ E adversário ficou com 0
+          if (scoreA >= 100 && scoreB === 0) {
             lisasApplied++;
           }
         } else {
-          // Time A perdeu (Time A chegou a 100 primeiro)
+          // Time A perdeu (adversário atingiu 100+ primeiro)
           defeats++;
-          // Lisa levada: adversário manteve 0 pontos E fez você chegar a 100
-          if (scoreA >= 100 && scoreB === 0) {
+          // Lisa levada: adversário atingiu 100+ E você ficou com 0
+          if (scoreB >= 100 && scoreA === 0) {
             lisasTaken++;
           }
         }
@@ -68,17 +68,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Usuário está no Time B
       else if (isInTeamB) {
         if (winnerTeam === 'B') {
-          // Time B ganhou (Time A chegou a 100 primeiro)
+          // Time B ganhou (atingiu 100+ primeiro)
           victories++;
-          // Lisa aplicada: você manteve 0 pontos E fez adversário chegar a 100
-          if (scoreB === 0 && scoreA >= 100) {
+          // Lisa aplicada: você atingiu 100+ E adversário ficou com 0
+          if (scoreB >= 100 && scoreA === 0) {
             lisasApplied++;
           }
         } else {
-          // Time B perdeu (Time B chegou a 100 primeiro)
+          // Time B perdeu (adversário atingiu 100+ primeiro)
           defeats++;
-          // Lisa levada: adversário manteve 0 pontos E fez você chegar a 100
-          if (scoreB >= 100 && scoreA === 0) {
+          // Lisa levada: adversário atingiu 100+ E você ficou com 0
+          if (scoreA >= 100 && scoreB === 0) {
             lisasTaken++;
           }
         }

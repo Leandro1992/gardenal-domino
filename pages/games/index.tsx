@@ -200,11 +200,11 @@ export default function GamesPage() {
       ) : (
         <div className="grid gap-4">
           {filteredGames.map((game) => {
-            // O vencedor é quem NÃO atingiu 100 pontos (adversário perdeu ao chegar a 100)
+            // O vencedor é quem atingiu 100+ pontos primeiro
             const winner = game.finished
               ? game.scoreA >= 100
-                ? 'B'  // Time A chegou a 100, então Time B venceu
-                : 'A'  // Time B chegou a 100, então Time A venceu
+                ? 'A'  // Time A chegou a 100+, Time A venceu
+                : 'B'  // Time B chegou a 100+, Time B venceu
               : null;
 
             return (

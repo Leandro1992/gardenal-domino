@@ -53,18 +53,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       updatedAt: new Date(),
     };
 
-    // check finish condition: the dupla that reaches >=100 first loses
+    // check finish condition: the team that reaches >=100 first wins
     if (newTeamA >= 100 || newTeamB >= 100) {
       update.finished = true;
-      // winner is the other team
-      update.winnerTeam = newTeamA >= 100 ? "B" : "A";
+      // winner is the team that reached 100+ first
+      update.winnerTeam = newTeamA >= 100 ? "A" : "B";
       update.finishedAt = new Date();
-      // lisa: if any team total equals 0 at finish
+      // lisa: if the losing team has 0 points when winner reaches 100+
       const lisaPlayers = [];
-      if (newTeamA === 0) {
+      if (newTeamA >= 100 && newTeamB === 0) {
+        // Team A won with lisa (Team B has 0)
         lisaPlayers.push(...game.teamA);
       }
-      if (newTeamB === 0) {
+      if (newTeamB >= 100 && newTeamA === 0) {
+        // Team B won with lisa (Team A has 0)
         lisaPlayers.push(...game.teamB);
       }
       if (lisaPlayers.length > 0) {
