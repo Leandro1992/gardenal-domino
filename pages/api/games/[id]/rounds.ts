@@ -53,20 +53,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       updatedAt: new Date(),
     };
 
-    // check finish condition: the team that reaches >=100 first wins
+    // check finish condition: the team that reaches >=100 first WINS
     if (newTeamA >= 100 || newTeamB >= 100) {
       update.finished = true;
-      // winner is the team that reached 100+ first
+      // winner is the team that reached 100+ points first
       update.winnerTeam = newTeamA >= 100 ? "A" : "B";
       update.finishedAt = new Date();
-      // lisa: if the losing team has 0 points when winner reaches 100+
+      // lisa: if the winner team reached 100+ and the loser team has 0 points
       const lisaPlayers = [];
       if (newTeamA >= 100 && newTeamB === 0) {
-        // Team A won with lisa (Team B has 0)
+        // Team A won reaching 100+ and Team B has 0 (lisa applied by Team A)
         lisaPlayers.push(...game.teamA);
       }
       if (newTeamB >= 100 && newTeamA === 0) {
-        // Team B won with lisa (Team A has 0)
+        // Team B won reaching 100+ and Team A has 0 (lisa applied by Team B)
         lisaPlayers.push(...game.teamB);
       }
       if (lisaPlayers.length > 0) {

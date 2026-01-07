@@ -62,17 +62,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // Usuário está no Time A
         if (isInTeamA) {
           if (winnerTeam === 'A') {
-            // Time A ganhou (Time B chegou a 100 primeiro)
+            // Time A ganhou (Time A atingiu 100 pontos primeiro)
             victories++;
-            // Lisa aplicada: você manteve 0 pontos E fez adversário chegar a 100
-            if (scoreA === 0 && scoreB >= 100) {
+            // Lisa aplicada: Time A venceu com 100+ pontos E Time B não fez nenhum ponto
+            if (scoreA >= 100 && scoreB === 0) {
               lisasApplied++;
             }
           } else {
-            // Time A perdeu (Time A chegou a 100 primeiro)
+            // Time A perdeu (Time B atingiu 100 pontos primeiro)
             defeats++;
-            // Lisa levada: adversário manteve 0 pontos E fez você chegar a 100
-            if (scoreA >= 100 && scoreB === 0) {
+            // Lisa tomada: Time A perdeu com 0 pontos enquanto Time B fez 100+
+            if (scoreA === 0 && scoreB >= 100) {
               lisasTaken++;
             }
           }
@@ -80,17 +80,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // Usuário está no Time B
         else if (isInTeamB) {
           if (winnerTeam === 'B') {
-            // Time B ganhou (Time A chegou a 100 primeiro)
+            // Time B ganhou (Time B atingiu 100 pontos primeiro)
             victories++;
-            // Lisa aplicada: você manteve 0 pontos E fez adversário chegar a 100
-            if (scoreB === 0 && scoreA >= 100) {
+            // Lisa aplicada: Time B venceu com 100+ pontos E Time A não fez nenhum ponto
+            if (scoreB >= 100 && scoreA === 0) {
               lisasApplied++;
             }
           } else {
-            // Time B perdeu (Time B chegou a 100 primeiro)
+            // Time B perdeu (Time A atingiu 100 pontos primeiro)
             defeats++;
-            // Lisa levada: adversário manteve 0 pontos E fez você chegar a 100
-            if (scoreB >= 100 && scoreA === 0) {
+            // Lisa tomada: Time B perdeu com 0 pontos enquanto Time A fez 100+
+            if (scoreB === 0 && scoreA >= 100) {
               lisasTaken++;
             }
           }
