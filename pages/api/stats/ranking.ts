@@ -119,7 +119,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return b.lisasApplied - a.lisasApplied;
     });
 
-    res.json({ ranking });
+    // Filtrar apenas jogadores que já participaram de ao menos um jogo
+    const rankingWithGames = ranking.filter(player => player.totalGames > 0);
+
+    res.json({ ranking: rankingWithGames });
   } catch (error) {
     console.error("Error fetching ranking:", error);
     res.status(500).json({ error: "Internal server error" });
