@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { getCurrentUser } from "../../../lib/auth";
 import FirebaseConnection from "../../../lib/firebaseAdmin";
+import * as admin from 'firebase-admin';
 
 const db = FirebaseConnection.getInstance().db;
 
@@ -46,7 +47,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const game = {
       createdBy: current.id,
-      createdAt: new Date(),
+      createdAt: admin.firestore.Timestamp.now(),
       teamA,
       teamB,
       rounds: [],
@@ -108,11 +109,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const data: any = d.data();
       return {
         id: d.id,
-        ...data,
+        createdBy: data.createdBy,
+        createdAt: data.createdAt ? { seconds: data.createdAt.seconds, nanoseconds: data.createdAt.nanoseconds } : null,
         teamA: (data.teamA || []).map((id: string) => usersMap.get(id) || { id, name: "Unknown" }),
         teamB: (data.teamB || []).map((id: string) => usersMap.get(id) || { id, name: "Unknown" }),
+        rounds: data.rounds || [],
+        teamA_total: data.teamA_total || 0,
+        teamB_total: data.teamB_total || 0,
         scoreA: data.teamA_total || 0,
-        scoreB: data.teamB_total || 0
+        scoreB: data.teamB_total || 0,
+        finished: data.finished || false,
+        lisa: data.lisa || false,
+        winnerTeam: data.winnerTeam || null,
+        finishedAt: data.finishedAt ? { seconds: data.finishedAt.seconds, nanoseconds: data.finishedAt.nanoseconds } : null
       };
     });
     

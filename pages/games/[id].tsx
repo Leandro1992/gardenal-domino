@@ -250,7 +250,7 @@ export default function GameDetailPage() {
             {game.finished ? 'Partida Finalizada' : 'Partida em Andamento'}
           </h1>
           <p className="text-gray-600 mt-1">
-            {new Date(game.createdAt?.seconds * 1000 || Date.now()).toLocaleDateString('pt-BR')}
+            {game.createdAt?.seconds ? new Date(game.createdAt.seconds * 1000).toLocaleDateString('pt-BR') : 'Data não disponível'}
           </p>
         </div>
       </div>

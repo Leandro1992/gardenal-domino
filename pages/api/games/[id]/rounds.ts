@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import FirebaseConnection from '../../../../lib/firebaseAdmin';
+import * as admin from 'firebase-admin';
 
 const db = FirebaseConnection.getInstance().db;
 import { getCurrentUser } from "../../../../lib/auth";
@@ -42,7 +43,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       roundNumber,
       teamA_points,
       teamB_points,
-      recordedAt: new Date(),
+      recordedAt: admin.firestore.Timestamp.now(),
       recordedBy: current.id,
     };
 
@@ -50,7 +51,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       rounds: [...(game.rounds || []), round],
       teamA_total: newTeamA,
       teamB_total: newTeamB,
-      updatedAt: new Date(),
+      updatedAt: admin.firestore.Timestamp.now(),
     };
 
     // check finish condition: the team that reaches >=100 first WINS
@@ -58,7 +59,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       update.finished = true;
       // winner is the team that reached 100+ points first
       update.winnerTeam = newTeamA >= 100 ? "A" : "B";
-      update.finishedAt = new Date();
+      update.finishedAt = admin.firestore.Timestamp.now();
       // lisa: if the winner team reached 100+ and the loser team has 0 points
       const lisaPlayers = [];
       if (newTeamA >= 100 && newTeamB === 0) {

@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import FirebaseConnection from '../../../../../lib/firebaseAdmin';
 import { getCurrentUser } from "../../../../../lib/auth";
+import * as admin from 'firebase-admin';
 
 const db = FirebaseConnection.getInstance().db;
 
@@ -61,7 +62,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           rounds: renumberedRounds,
           teamA_total: newTeamA,
           teamB_total: newTeamB,
-          updatedAt: new Date(),
+          updatedAt: admin.firestore.Timestamp.now(),
         };
 
         tx.update(gameRef, update);

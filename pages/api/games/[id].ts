@@ -40,11 +40,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     return res.json({ 
       id: doc.id, 
-      ...gameData,
+      createdBy: gameData.createdBy,
+      createdAt: gameData.createdAt ? { seconds: gameData.createdAt.seconds, nanoseconds: gameData.createdAt.nanoseconds } : null,
       teamA: teamAPlayers,
       teamB: teamBPlayers,
+      rounds: gameData.rounds || [],
+      teamA_total: gameData.teamA_total || 0,
+      teamB_total: gameData.teamB_total || 0,
       scoreA: gameData.teamA_total || 0,
-      scoreB: gameData.teamB_total || 0
+      scoreB: gameData.teamB_total || 0,
+      finished: gameData.finished || false,
+      lisa: gameData.lisa || false,
+      winnerTeam: gameData.winnerTeam || null,
+      finishedAt: gameData.finishedAt ? { seconds: gameData.finishedAt.seconds, nanoseconds: gameData.finishedAt.nanoseconds } : null
     });
   }
 

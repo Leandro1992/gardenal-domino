@@ -74,9 +74,23 @@ export default function GamesPage() {
     
     // Filter by date
     if (dateFilter) {
-      const gameDate = new Date(game.createdAt?.seconds * 1000 || Date.now());
-      const filterDate = new Date(dateFilter);
-      if (gameDate.toDateString() !== filterDate.toDateString()) return false;
+      if (!game.createdAt?.seconds) return false;
+      const gameDate = new Date(game.createdAt.seconds * 1000);
+      const filterDateParts = dateFilter.split('-'); // YYYY-MM-DD
+      
+      if (filterDateParts.length === 3) {
+        const filterYear = parseInt(filterDateParts[0]);
+        const filterMonth = parseInt(filterDateParts[1]);
+        const filterDay = parseInt(filterDateParts[2]);
+        
+        const gameYear = gameDate.getFullYear();
+        const gameMonth = gameDate.getMonth() + 1; // getMonth() returns 0-11
+        const gameDay = gameDate.getDate();
+        
+        if (gameYear !== filterYear || gameMonth !== filterMonth || gameDay !== filterDay) {
+          return false;
+        }
+      }
     }
     
     return true;
@@ -231,7 +245,7 @@ export default function GamesPage() {
                           )}
                         </div>
                         <span className="text-sm text-gray-500">
-                          {new Date(game.createdAt?.seconds * 1000 || Date.now()).toLocaleDateString('pt-BR')}
+                          {game.createdAt?.seconds ? new Date(game.createdAt.seconds * 1000).toLocaleDateString('pt-BR') : 'Data não disponível'}
                         </span>
                       </div>
 

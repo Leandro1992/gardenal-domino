@@ -236,43 +236,68 @@ export default function HomePage() {
             </Link>
           </div>
           <div className="grid gap-4">
-            {finishedGames.slice(0, 5).map((game) => (
+            {finishedGames.slice(0, 5).map((game) => {
+              const winner = game.scoreA >= 100 ? 'A' : 'B';
+              
+              return (
               <Link key={game.id} href={`/games/${game.id}`} legacyBehavior>
                 <a>
                   <Card className="hover:shadow-md transition-shadow cursor-pointer">
                   <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-gray-700">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          {winner === 'A' && (
+                            <Trophy className="h-5 w-5 text-green-600 flex-shrink-0" />
+                          )}
+                          <span className={`text-sm font-medium truncate ${
+                            winner === 'A' ? 'text-green-700' : 'text-gray-700'
+                          }`}>
                             {game.teamA.map(p => p.name).join(' & ')}
                           </span>
-                          <span className={`text-xl font-bold ${game.scoreA >= 100 ? 'text-green-600' : 'text-red-600'}`}>
-                            {game.scoreA}
-                          </span>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-gray-700">
+                        <span className={`text-xl font-bold ml-4 ${
+                          winner === 'A' ? 'text-green-600' : 'text-gray-900'
+                        }`}>
+                          {game.scoreA}
+                        </span>
+                      </div>
+                      
+                      <div className="h-px bg-gray-200"></div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          {winner === 'B' && (
+                            <Trophy className="h-5 w-5 text-green-600 flex-shrink-0" />
+                          )}
+                          <span className={`text-sm font-medium truncate ${
+                            winner === 'B' ? 'text-green-700' : 'text-gray-700'
+                          }`}>
                             {game.teamB.map(p => p.name).join(' & ')}
                           </span>
-                          <span className={`text-xl font-bold ${game.scoreB >= 100 ? 'text-green-600' : 'text-red-600'}`}>
-                            {game.scoreB}
+                        </div>
+                        <span className={`text-xl font-bold ml-4 ${
+                          winner === 'B' ? 'text-green-600' : 'text-gray-900'
+                        }`}>
+                          {game.scoreB}
+                        </span>
+                      </div>
+                      
+                      {game.lisa && (
+                        <div className="mt-2">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            <Award className="h-3 w-3 mr-1" />
+                            Lisa
                           </span>
                         </div>
-                        {game.lisa && (
-                          <div className="mt-2">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                              Lisa
-                            </span>
-                          </div>
-                        )}
-                      </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
                 </a>
               </Link>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
