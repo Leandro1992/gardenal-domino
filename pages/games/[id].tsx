@@ -5,7 +5,8 @@ import { useAuth } from '@/lib/useAuth';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Loader2, ArrowLeft, Plus, Trophy, Award } from 'lucide-react';
+import { Modal } from '@/components/ui/Modal';
+import { Loader2, ArrowLeft, Plus, Trophy, Award, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 
 interface Player {
@@ -46,6 +47,8 @@ export default function GameDetailPage() {
   const [showLisaAnimation, setShowLisaAnimation] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deletingRound, setDeletingRound] = useState<number | null>(null);
+  const [showFinishModal, setShowFinishModal] = useState(false);
+  const [finishing, setFinishing] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -179,6 +182,39 @@ export default function GameDetailPage() {
       setError(err.message);
     } finally {
       setDeletingRound(null);
+    }
+  };
+
+  const handleFinishGame = async () => {
+    setFinishing(true);
+    setError('');
+    
+    try {
+      const response = await fetch(`/api/games/${id}/finish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Erro ao finalizar partida');
+      }
+
+      const result = await response.json();
+      
+      setShowFinishModal(false);
+      
+      // Se terminou em lisa, mostra animação
+      if (result.lisa) {
+        setShowLisaAnimation(true);
+        setTimeout(() => setShowLisaAnimation(false), 5000);
+      }
+      
+      await fetchGame();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setFinishing(false);
     }
   };
 
@@ -316,10 +352,23 @@ export default function GameDetailPage() {
       {!game.finished && (
         <>
           {!showAddRound ? (
-            <Button fullWidth size="lg" onClick={() => setShowAddRound(true)}>
-              <Plus className="mr-2 h-5 w-5" />
-              Adicionar Rodada
-            </Button>
+            <div className="space-y-3">
+              <Button fullWidth size="lg" onClick={() => setShowAddRound(true)}>
+                <Plus className="mr-2 h-5 w-5" />
+                Adicionar Rodada
+              </Button>
+              {(game.scoreA >= 100 || game.scoreB >= 100) && (
+                <Button 
+                  fullWidth 
+                  size="lg" 
+                  variant="danger"
+                  onClick={() => setShowFinishModal(true)}
+                >
+                  <CheckCircle className="mr-2 h-5 w-5" />
+                  Finalizar Partida
+                </Button>
+              )}
+            </div>
           ) : (
             <Card>
               <CardHeader>
@@ -480,6 +529,85 @@ export default function GameDetailPage() {
         </Card>
       )}
       </div>
+
+      {/* Modal de Confirmação de Finalização */}
+      <Modal
+        isOpen={showFinishModal}
+        onClose={() => setShowFinishModal(false)}
+        title="Confirmar Finalização da Partida"
+      >
+        <div className="space-y-4">
+          <p className="text-gray-700">
+            Confira a pontuação antes de finalizar:
+          </p>
+          
+          <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-gray-900">
+                {game?.teamA.map(p => p.name).join(' & ')}
+              </span>
+              <span className="text-2xl font-bold text-primary-600">
+                {game?.scoreA} pts
+              </span>
+            </div>
+            
+            <div className="border-t border-gray-200"></div>
+            
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-gray-900">
+                {game?.teamB.map(p => p.name).join(' & ')}
+              </span>
+              <span className="text-2xl font-bold text-primary-600">
+                {game?.scoreB} pts
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <p className="text-sm text-blue-800">
+              <strong>Regra:</strong> No dominó, quem atinge 100 pontos <strong>VENCE</strong>!
+              {game && ((game.scoreA === 0 && game.scoreB >= 100) || (game.scoreB === 0 && game.scoreA >= 100)) && (
+                <span className="block mt-1 font-semibold text-amber-700">🎉 Esta é uma vitória LISA!</span>
+              )}
+            </p>
+          </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-sm text-red-800">{error}</p>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <Button
+              fullWidth
+              variant="secondary"
+              onClick={() => setShowFinishModal(false)}
+              disabled={finishing}
+            >
+              Cancelar
+            </Button>
+            <Button
+              fullWidth
+              variant="primary"
+              onClick={handleFinishGame}
+              disabled={finishing}
+            >
+              {finishing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Finalizando...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                  Confirmar Finalização
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 }

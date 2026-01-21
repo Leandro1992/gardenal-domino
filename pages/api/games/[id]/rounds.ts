@@ -54,27 +54,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       updatedAt: admin.firestore.Timestamp.now(),
     };
 
-    // check finish condition: the team that reaches >=100 first WINS
-    if (newTeamA >= 100 || newTeamB >= 100) {
-      update.finished = true;
-      // winner is the team that reached 100+ points first
-      update.winnerTeam = newTeamA >= 100 ? "A" : "B";
-      update.finishedAt = admin.firestore.Timestamp.now();
-      // lisa: if the winner team reached 100+ and the loser team has 0 points
-      const lisaPlayers = [];
-      if (newTeamA >= 100 && newTeamB === 0) {
-        // Team A won reaching 100+ and Team B has 0 (lisa applied by Team A)
-        lisaPlayers.push(...game.teamA);
-      }
-      if (newTeamB >= 100 && newTeamA === 0) {
-        // Team B won reaching 100+ and Team A has 0 (lisa applied by Team B)
-        lisaPlayers.push(...game.teamB);
-      }
-      if (lisaPlayers.length > 0) {
-        update.lisa = lisaPlayers;
-      }
-    }
-
+    // Não finaliza automaticamente mais - precisa de confirmação manual
     tx.update(gameRef, update);
     return update;
   })

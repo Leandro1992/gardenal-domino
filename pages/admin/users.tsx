@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/useAuth';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { UserPlus, Loader2, Key, Trash2, Edit } from 'lucide-react';
+import { UserPlus, Loader2, Key, Trash2, Edit, ShieldCheck, ShieldOff } from 'lucide-react';
 
 interface User {
   id: string;
@@ -115,6 +115,33 @@ export default function UsersPage() {
       }
 
       setSuccess('Nome alterado com sucesso!');
+      fetchUsers();
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const handleToggleRole = async (userId: string, currentRole: string, userName: string) => {
+    const newRole = currentRole === 'admin' ? 'user' : 'admin';
+    const action = newRole === 'admin' ? 'promover' : 'rebaixar';
+    
+    if (!confirm(`Deseja realmente ${action} ${userName} para ${newRole === 'admin' ? 'Administrador' : 'Usuário'}?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/users/${userId}/role`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: newRole }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Erro ao alterar role');
+      }
+
+      setSuccess(`Usuário ${action === 'promover' ? 'promovido' : 'rebaixado'} com sucesso!`);
       fetchUsers();
     } catch (err: any) {
       setError(err.message);
@@ -245,6 +272,20 @@ export default function UsersPage() {
                     <p className="text-sm text-gray-500 mt-1 truncate">{u.email}</p>
                   </div>
                   <div className="flex items-center gap-2 ml-4">
+                    {u.id !== user?.id && (
+                      <Button
+                        variant={u.role === 'admin' ? 'secondary' : 'ghost'}
+                        size="sm"
+                        onClick={() => handleToggleRole(u.id, u.role, u.name)}
+                        title={u.role === 'admin' ? 'Rebaixar para usuário' : 'Promover para admin'}
+                      >
+                        {u.role === 'admin' ? (
+                          <ShieldOff className="h-4 w-4" />
+                        ) : (
+                          <ShieldCheck className="h-4 w-4" />
+                        )}
+                      </Button>
+                    )}
                     <Button
                       variant="secondary"
                       size="sm"
