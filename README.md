@@ -6,7 +6,7 @@ Web app para registrar partidas e calcular estatísticas dos jogos de dominó do
 - **Next.js 13** + React (TypeScript)
 - **Node.js**
 - **Firestore** (Firebase Admin SDK)
-- **Bcrypt + JWT** (autenticação com cookies HttpOnly)
+- **SHA-256 + token assinado custom em cookie HttpOnly** (autenticação)
 - **Tailwind CSS 3.4** (Design System)
 - **Lucide React** (Ícones)
 - **Deploy**: Heroku
@@ -25,9 +25,9 @@ Web app para registrar partidas e calcular estatísticas dos jogos de dominó do
 - ✅ Criação de partidas com 4 jogadores (2 duplas)
 - ✅ Busca e filtro de jogadores ao criar partida
 - ✅ Registro de rodadas com pontuação
-- ✅ Finalização automática quando uma dupla atinge 100 pontos
-- ✅ **Regra do Dominó**: quem chega a 100 pontos **PERDE**
-- ✅ Marcação "Lisa" quando vencedor mantém 0 pontos
+- ✅ Finalização **manual** da partida (com confirmação)
+- ✅ **Regra do Dominó**: quem chega a 100 pontos **GANHA**
+- ✅ Marcação "Lisa" quando o time vencedor mantém o adversário com 0 pontos
 - ✅ Animação especial para vitórias Lisa
 - ✅ Validação: jogador não pode estar em múltiplas partidas ativas
 - ✅ Validação: apenas membros da partida podem adicionar rodadas
@@ -106,7 +106,8 @@ Instalação local
 - `POST /api/games` - Criar nova partida
 - `GET /api/games/:id` - Detalhes de uma partida
 - `GET /api/games/:id/rounds` - Rodadas de uma partida
-- `POST /api/games/:id/rounds` - Adicionar rodada (auto-finaliza se atingir 100)
+- `POST /api/games/:id/rounds` - Adicionar rodada
+- `POST /api/games/:id/finish` - Finalizar partida (manual)
 
 ### Estatísticas
 - `GET /api/stats/me` - Estatísticas do usuário logado

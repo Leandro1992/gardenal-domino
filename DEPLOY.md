@@ -271,11 +271,12 @@ Para produção, recomenda-se **Hobby** ou superior.
 
 1. ✅ Testar login com admin padrão
 2. ✅ Criar usuários de teste
-3. ✅ Testar criação e finalização de partidas
-4. ✅ Verificar estatísticas e ranking
-5. ✅ Testar em mobile (PWA no futuro)
-6. ✅ Configurar domínio customizado (opcional)
-7. ✅ Monitorar logs e performance
+3. ✅ Testar criação de partidas, adição de rodadas e finalização manual
+4. ✅ Validar regra: time que chega primeiro a 100+ pontos vence
+5. ✅ Verificar estatísticas e ranking
+6. ✅ Testar em mobile (PWA no futuro)
+7. ✅ Configurar domínio customizado (opcional)
+8. ✅ Monitorar logs e performance
 
 ## Atualizar Aplicação
 

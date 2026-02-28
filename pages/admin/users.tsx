@@ -100,18 +100,19 @@ export default function UsersPage() {
 
   const handleUpdateName = async (userId: string, currentName: string) => {
     const newName = prompt('Digite o novo nome:', currentName);
-    if (!newName || newName === currentName) return;
+    const normalizedName = newName?.trim();
+    if (!normalizedName || normalizedName === currentName) return;
 
     try {
       const response = await fetch(`/api/admin/users/${userId}/name`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newName }),
+        body: JSON.stringify({ name: normalizedName }),
       });
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.message || 'Erro ao alterar nome');
+        throw new Error(data.error || data.message || 'Erro ao alterar nome');
       }
 
       setSuccess('Nome alterado com sucesso!');
@@ -138,7 +139,7 @@ export default function UsersPage() {
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Erro ao alterar role');
+        throw new Error(data.error || data.message || 'Erro ao alterar role');
       }
 
       setSuccess(`Usuário ${action === 'promover' ? 'promovido' : 'rebaixado'} com sucesso!`);

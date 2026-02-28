@@ -30,7 +30,7 @@ export default function SettingsPage() {
       router.push('/login');
     }
     if (user) {
-      setName(user.name);
+      setName(user.name || '');
     }
   }, [user, loading, router]);
 
@@ -174,7 +174,10 @@ export default function SettingsPage() {
               </span>
             </div>
 
-            <Button type="submit" disabled={isUpdatingProfile || name === user.name}>
+            <Button
+              type="submit"
+              disabled={isUpdatingProfile || name.trim() === (user.name || '').trim()}
+            >
               {isUpdatingProfile ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

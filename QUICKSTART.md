@@ -91,8 +91,9 @@ A interface foi desenvolvida priorizando dispositivos móveis:
 4. Selecionar 2 jogadores para Time B
 5. Click em "Criar Partida"
 6. Adicionar rodadas com os pontos
-7. Sistema finaliza automaticamente quando um time atinge 100 pontos
-8. Marca "Lisa" se o adversário terminou com 0 pontos
+7. Finalizar manualmente quando um time atingir 100+ pontos
+8. Time que chega primeiro a 100+ pontos vence
+9. Marca "Lisa" se o adversário terminou com 0 pontos
 
 ### Administração
 1. Login como admin

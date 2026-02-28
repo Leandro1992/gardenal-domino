@@ -2,9 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/lib/useAuth';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { Card, CardContent } from '@/components/ui/Card';
-import { Loader2, Trophy, Plus, Filter, Award, Search, Calendar } from 'lucide-react';
+import { Loader2, Trophy, Plus, Award, Search, Calendar } from 'lucide-react';
 import Link from 'next/link';
 
 interface Game {
@@ -14,6 +13,7 @@ interface Game {
   scoreA: number;
   scoreB: number;
   finished: boolean;
+  winnerTeam?: 'A' | 'B';
   lisa: boolean;
   createdAt: any;
 }
@@ -214,11 +214,8 @@ export default function GamesPage() {
       ) : (
         <div className="grid gap-4">
           {filteredGames.map((game) => {
-            // O vencedor é quem atingiu 100+ pontos primeiro
             const winner = game.finished
-              ? game.scoreA >= 100
-                ? 'A'  // Time A chegou a 100+, Time A venceu
-                : 'B'  // Time B chegou a 100+, Time B venceu
+              ? (game.winnerTeam ?? (game.scoreA >= 100 ? 'A' : 'B'))
               : null;
 
             return (

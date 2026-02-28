@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/lib/useAuth';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Loader2, Users as UsersIcon, ArrowLeft, Search } from 'lucide-react';
 import Link from 'next/link';
@@ -46,8 +45,8 @@ export default function NewGamePage() {
         const data = await usersResponse.json();
         setUsers(data.users || []);
         
-        // Adicionar automaticamente o usuário logado no Time A (se não for admin criando para outros)
-        if (user && !teamA.includes(user.id)) {
+        // Adiciona automaticamente usuário logado apenas para não-admin
+        if (user && user.role !== 'admin' && !teamA.includes(user.id)) {
           setTeamA([user.id]);
         }
       }

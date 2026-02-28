@@ -6,10 +6,10 @@ Desenvolver uma aplicação web para cadastro e registro de partidas de dominó 
 
 Resumo dos requisitos
 - Usuários com roles: `admin` e `user`. Só `admin` pode cadastrar novos usuários.
-- Login com senha (hash com bcrypt) e sessão via JWT em cookie HttpOnly.
+- Login com senha (hash com SHA-256) e sessão via token assinado em cookie HttpOnly.
 - Troca de senha simples: usuário troca sua própria senha (precisa da antiga); `admin` pode alterar senha de qualquer usuário sem precisar da senha antiga.
 - Usuários comuns podem criar partidas (4 jogadores — 2 duplas), registrar rodadas e visualizar partidas anteriores.
-- Partida: múltiplas rodadas; pontuação cumulativa por dupla; a dupla que somar 100 pontos primeiro perde. Se uma dupla terminar com 0 pontos, os jogadores dessa dupla recebem marcação "Lisa".
+- Partida: múltiplas rodadas; pontuação cumulativa por dupla; a dupla que somar 100 pontos primeiro vence. Se o time perdedor terminar com 0 pontos, os jogadores do time vencedor recebem marcação "Lisa".
 - Ao criar partida, só é possível selecionar jogadores já cadastrados; UI deve permitir selecionar duplas.
 - Priorizar simplicidade e legibilidade do código.
 - Deve existir um admin default na primeira inicialização (credenciais via variáveis de ambiente).
@@ -19,7 +19,7 @@ Critérios de aceite
 - Admin default criado no primeiro start (ou via script).
 - Admin pode criar usuários e alterar senha de outros.
 - Usuário pode trocar sua própria senha (exigindo senha antiga).
-- Usuário cria partida somente com usuários existentes; ao registrar rodadas a lógica termina a partida quando uma dupla atinge >=100; marcação "Lisa" quando uma dupla termina com 0.
+- Usuário cria partida somente com usuários existentes; ao registrar rodadas a partida só é finalizada manualmente quando houver time com >=100; marcação "Lisa" quando o perdedor termina com 0.
 - Deploy documentado para Heroku e variáveis de ambiente documentadas.
 
 Tarefas (checklist) — com estimativas (horas)

@@ -11,6 +11,8 @@ interface User {
   role: string;
 }
 
+type RankingMode = "general" | "lisa";
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -22,17 +24,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Buscar todos os usuários
+    const mode: RankingMode = req.query.mode === "lisa" ? "lisa" : "general";
+
     const usersSnap = await db.collection("users").get();
-    const users = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+    const users = usersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as User));
 
-    // Buscar todas as partidas finalizadas
-    const gamesSnap = await db.collection("games")
-      .where("finished", "==", true)
-      .get();
+    const gamesSnap = await db.collection("games").where("finished", "==", true).get();
 
-    // Calcular estatísticas para cada usuário
-    const ranking = users.map(user => {
+    const ranking = users.map((user) => {
       let victories = 0;
       let defeats = 0;
       let lisasApplied = 0;
@@ -42,63 +41,41 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const game: any = doc.data();
         const teamAIds = game.teamA || [];
         const teamBIds = game.teamB || [];
-        
+
         const isInTeamA = teamAIds.includes(user.id);
         const isInTeamB = teamBIds.includes(user.id);
-        
-        if (!isInTeamA && !isInTeamB) {
-          return; // Usuário não participou desta partida
-        }
+        if (!isInTeamA && !isInTeamB) return;
 
-        // Validar que a partida tem winner definido
         const winnerTeam = game.winnerTeam;
-        if (!winnerTeam || (winnerTeam !== 'A' && winnerTeam !== 'B')) {
-          return; // Partida inválida
-        }
+        if (!winnerTeam || (winnerTeam !== "A" && winnerTeam !== "B")) return;
 
         const scoreA = game.teamA_total || 0;
         const scoreB = game.teamB_total || 0;
-        
-        // Usuário está no Time A
+        const hasLisa = Array.isArray(game.lisa) ? game.lisa.length > 0 : Boolean(game.lisa);
+
+        // No ranking de lisa, considerar apenas jogos com lisa
+        if (mode === "lisa" && !hasLisa) return;
+
         if (isInTeamA) {
-          if (winnerTeam === 'A') {
-            // Time A ganhou (Time A atingiu 100 pontos primeiro)
+          if (winnerTeam === "A") {
             victories++;
-            // Lisa aplicada: Time A venceu com 100+ pontos E Time B não fez nenhum ponto
-            if (scoreA >= 100 && scoreB === 0) {
-              lisasApplied++;
-            }
+            if (scoreA >= 100 && scoreB === 0) lisasApplied++;
           } else {
-            // Time A perdeu (Time B atingiu 100 pontos primeiro)
             defeats++;
-            // Lisa tomada: Time A perdeu com 0 pontos enquanto Time B fez 100+
-            if (scoreA === 0 && scoreB >= 100) {
-              lisasTaken++;
-            }
+            if (scoreA === 0 && scoreB >= 100) lisasTaken++;
           }
-        } 
-        // Usuário está no Time B
-        else if (isInTeamB) {
-          if (winnerTeam === 'B') {
-            // Time B ganhou (Time B atingiu 100 pontos primeiro)
+        } else if (isInTeamB) {
+          if (winnerTeam === "B") {
             victories++;
-            // Lisa aplicada: Time B venceu com 100+ pontos E Time A não fez nenhum ponto
-            if (scoreB >= 100 && scoreA === 0) {
-              lisasApplied++;
-            }
+            if (scoreB >= 100 && scoreA === 0) lisasApplied++;
           } else {
-            // Time B perdeu (Time A atingiu 100 pontos primeiro)
             defeats++;
-            // Lisa tomada: Time B perdeu com 0 pontos enquanto Time A fez 100+
-            if (scoreB === 0 && scoreA >= 100) {
-              lisasTaken++;
-            }
+            if (scoreB === 0 && scoreA >= 100) lisasTaken++;
           }
         }
       });
 
-      // Calcular score: vitórias (+1) + lisas aplicadas (+2) - derrotas (-1) - lisas tomadas (-2)
-      const score = victories + (lisasApplied * 2) - defeats - (lisasTaken * 2);
+      const score = victories + lisasApplied * 2 - defeats - lisasTaken * 2;
 
       return {
         id: user.id,
@@ -108,23 +85,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         lisasApplied,
         lisasTaken,
         totalGames: victories + defeats,
-        score
+        score,
       };
     });
 
-    // Ordenar por score (maior primeiro), depois por vitórias, depois por lisas aplicadas
-    ranking.sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      if (b.victories !== a.victories) return b.victories - a.victories;
-      return b.lisasApplied - a.lisasApplied;
-    });
+    if (mode === "lisa") {
+      ranking.sort((a, b) => {
+        if (b.lisasApplied !== a.lisasApplied) return b.lisasApplied - a.lisasApplied;
+        if (a.lisasTaken !== b.lisasTaken) return a.lisasTaken - b.lisasTaken;
+        if (b.victories !== a.victories) return b.victories - a.victories;
+        return b.score - a.score;
+      });
+    } else {
+      ranking.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        if (b.victories !== a.victories) return b.victories - a.victories;
+        return b.lisasApplied - a.lisasApplied;
+      });
+    }
 
-    // Filtrar apenas jogadores que já participaram de ao menos um jogo
-    const rankingWithGames = ranking.filter(player => player.totalGames > 0);
+    const rankingWithGames = ranking.filter((player) => player.totalGames > 0);
 
-    res.json({ ranking: rankingWithGames });
+    return res.json({ ranking: rankingWithGames, mode });
   } catch (error) {
     console.error("Error fetching ranking:", error);
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 }

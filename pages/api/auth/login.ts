@@ -1,5 +1,4 @@
 import { NextApiRequest, NextApiResponse } from "next";
-console.log("Chegou na api de login");
 import FirebaseConnection from "../../../lib/firebaseAdmin";
 import { comparePassword, signToken } from "../../../lib/auth";
 import cookie from "cookie";
@@ -7,22 +6,27 @@ import cookie from "cookie";
 const db = FirebaseConnection.getInstance().db;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  console.log("Chegou na api de login");
-  if (req.method !== "POST") return res.status(405).end();
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    return res.status(405).end();
+  }
+
   const { email, password } = req.body || {};
-  if (!email || !password) return res.status(400).json({ error: "email and password required" });
-  
-  // Se o email não contém @, adiciona @gardenal.com
-  const emailToSearch = email.includes('@') ? email : `${email}@gardenal.com`;
-  
-  console.log("Buscando usuário no banco de dados", emailToSearch, password);
+  const rawEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+  const rawPassword = typeof password === "string" ? password : "";
+
+  if (!rawEmail || !rawPassword) {
+    return res.status(400).json({ error: "email and password required" });
+  }
+
+  const emailToSearch = rawEmail.includes("@") ? rawEmail : `${rawEmail}@gardenal.com`;
+
   const q = await db.collection("users").where("email", "==", emailToSearch).limit(1).get();
-  console.log("Query executada", q.empty);
   if (q.empty) return res.status(401).json({ error: "Invalid credentials" });
+
   const doc = q.docs[0];
   const user = doc.data() as any;
-  const ok = await comparePassword(password, user.passwordHash);
-  console.log("Query executada2", ok);
+  const ok = await comparePassword(rawPassword, user.passwordHash);
   if (!ok) return res.status(401).json({ error: "Invalid credentials" });
 
   const token = signToken({ uid: doc.id, role: user.role });
@@ -31,7 +35,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     cookie.serialize("gardenal_token", token, {
       httpOnly: true,
       path: "/",
-      maxAge: 60 * 60 * 24, // 1 day
+      maxAge: 60 * 60 * 24,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
     })

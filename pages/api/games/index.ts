@@ -81,11 +81,49 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   if (req.method === "GET") {
-    const snap = await db.collection("games").orderBy("createdAt", "desc").limit(50).get();
-    
-    // Get all unique user IDs from all games
+    const gamesCollection = db.collection("games");
+    const mine = req.query.mine === "true" || req.query.mine === "1";
+
+    let totalGames = 0;
+    let gameDocs: any[] = [];
+
+    if (mine) {
+      const [teamASnap, teamBSnap] = await Promise.all([
+        gamesCollection.where("teamA", "array-contains", current.id).get(),
+        gamesCollection.where("teamB", "array-contains", current.id).get(),
+      ]);
+
+      const docsMap = new Map<string, any>();
+      [...teamASnap.docs, ...teamBSnap.docs].forEach((doc) => docsMap.set(doc.id, doc));
+
+      gameDocs = Array.from(docsMap.values()).sort((a, b) => {
+        const aData: any = a.data();
+        const bData: any = b.data();
+        const aSec = aData.createdAt?.seconds || 0;
+        const bSec = bData.createdAt?.seconds || 0;
+        if (bSec !== aSec) return bSec - aSec;
+        const aNano = aData.createdAt?.nanoseconds || 0;
+        const bNano = bData.createdAt?.nanoseconds || 0;
+        return bNano - aNano;
+      });
+
+      totalGames = gameDocs.length;
+    } else {
+      try {
+        const totalSnap = await gamesCollection.count().get();
+        totalGames = totalSnap.data().count;
+      } catch {
+        const totalSnapFallback = await gamesCollection.get();
+        totalGames = totalSnapFallback.size;
+      }
+
+      const snap = await gamesCollection.orderBy("createdAt", "desc").limit(50).get();
+      gameDocs = snap.docs;
+    }
+
+    // Get all unique user IDs from selected games
     const allUserIds = new Set<string>();
-    snap.docs.forEach((doc) => {
+    gameDocs.forEach((doc) => {
       const data: any = doc.data();
       (data.teamA || []).forEach((id: string) => allUserIds.add(id));
       (data.teamB || []).forEach((id: string) => allUserIds.add(id));
@@ -105,7 +143,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
     
     // Map games with populated player data
-    const games = snap.docs.map((d) => {
+    const games = gameDocs.map((d) => {
       const data: any = d.data();
       return {
         id: d.id,
@@ -125,7 +163,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       };
     });
     
-    return res.json({ games });
+    return res.json({ games, totalGames });
   }
 
   return res.status(405).end();

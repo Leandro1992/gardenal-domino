@@ -1,33 +1,47 @@
+import * as admin from "firebase-admin";
 import FirebaseConnection from "../lib/firebaseAdmin";
 import { hashPassword } from "../lib/auth";
 
 const db = FirebaseConnection.getInstance().db;
 
-// Lista de usuários padrão do Gardenal
-const defaultUsers = [
+type DefaultUser = {
+  email: string;
+  name: string;
+};
 
+// Lista de usuários padrão do Gardenal
+const defaultUsers: DefaultUser[] = [
+  // ...preencher manualmente quando necessário...
 ];
 
+const normalizeEmail = (value: string) => {
+  const email = value.trim().toLowerCase();
+  return email.includes("@") ? email : `${email}@gardenal.com`;
+};
+
 async function seedAdmin() {
-  const email = process.env.DEFAULT_ADMIN_EMAIL;
+  const emailRaw = process.env.DEFAULT_ADMIN_EMAIL;
   const password = process.env.DEFAULT_ADMIN_PASSWORD;
 
-  if (!email || !password) {
+  if (!emailRaw || !password) {
     console.error("DEFAULT_ADMIN_EMAIL and DEFAULT_ADMIN_PASSWORD env vars are required");
     process.exit(1);
   }
 
+  const email = normalizeEmail(emailRaw);
+  const now = admin.firestore.Timestamp.now();
+
   // Criar admin
-  const adminQuery = await db.collection("users").where("email", "==", email).get();
+  const adminQuery = await db.collection("users").where("email", "==", email).limit(1).get();
   if (adminQuery.empty) {
     const passwordHash = await hashPassword(password);
     const adminDoc = await db.collection("users").add({
       email,
-      name: "*****",
-      role: "*****",
+      name: "Administrador",
+      role: "admin",
       passwordHash,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: now,
+      updatedAt: now,
       lisaCount: 0,
     });
     console.log("✅ Admin created:", adminDoc.id);
@@ -36,27 +50,28 @@ async function seedAdmin() {
   }
 
   // Criar usuários padrão
-  const defaultPassword = "********"; // Senha padrão para todos os usuários
+  const defaultPassword = process.env.DEFAULT_USER_PASSWORD || "123456";
   const defaultPasswordHash = await hashPassword(defaultPassword);
-  
+
   console.log("\n🎯 Creating default users...");
   let created = 0;
   let skipped = 0;
 
   for (const user of defaultUsers) {
-    const userQuery = await db.collection("users").where("email", "==", user.email).get();
-    
+    const normalizedEmail = normalizeEmail(user.email);
+    const userQuery = await db.collection("users").where("email", "==", normalizedEmail).limit(1).get();
+
     if (userQuery.empty) {
       await db.collection("users").add({
-        email: user.email,
-        name: user.name,
+        email: normalizedEmail,
+        name: user.name.trim(),
         role: "user",
         passwordHash: defaultPasswordHash,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: now,
+        updatedAt: now,
         lisaCount: 0,
       });
-      console.log(`  ✅ Created: ${user.name} (${user.email})`);
+      console.log(`  ✅ Created: ${user.name} (${normalizedEmail})`);
       created++;
     } else {
       console.log(`  ⏭️  Skipped: ${user.name} (already exists)`);
@@ -68,8 +83,7 @@ async function seedAdmin() {
   console.log(`  - Users created: ${created}`);
   console.log(`  - Users skipped: ${skipped}`);
   console.log(`  - Total users: ${defaultUsers.length}`);
-  console.log(`\n🔑 Default password for all users: ${defaultPassword}`);
-  
+
   process.exit(0);
 }
 
