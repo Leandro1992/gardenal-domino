@@ -28,6 +28,7 @@ export default function Layout({ children }: LayoutProps) {
     { name: 'Início', href: '/', icon: Home },
     { name: 'Partidas', href: '/games', icon: Trophy },
     { name: 'Ranking', href: '/ranking', icon: Award },
+    { name: 'Panela', href: '/panela', icon: Users },
     ...(user.role === 'admin'
       ? [{ name: 'Usuários', href: '/admin/users', icon: Users }]
       : []),

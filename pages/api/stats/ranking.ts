@@ -91,6 +91,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (mode === "lisa") {
       ranking.sort((a, b) => {
+        const lisaScoreA = a.lisasApplied - a.lisasTaken;
+        const lisaScoreB = b.lisasApplied - b.lisasTaken;
+
+        if (lisaScoreB !== lisaScoreA) return lisaScoreB - lisaScoreA;
         if (b.lisasApplied !== a.lisasApplied) return b.lisasApplied - a.lisasApplied;
         if (a.lisasTaken !== b.lisasTaken) return a.lisasTaken - b.lisasTaken;
         if (b.victories !== a.victories) return b.victories - a.victories;

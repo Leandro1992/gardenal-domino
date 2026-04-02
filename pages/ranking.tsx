@@ -171,7 +171,8 @@ export default function RankingPage() {
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-4 text-sm text-gray-600 overflow-x-auto pb-1">
+                          <div className="space-y-1.5 text-sm text-gray-600">
+                            <div className="flex items-center gap-4 flex-wrap">
                             <span className="whitespace-nowrap flex items-center gap-1">
                               <Flame className="h-3 w-3 text-yellow-600" />
                               <strong className="text-yellow-700">{player.lisasApplied}</strong>
@@ -181,6 +182,18 @@ export default function RankingPage() {
                               <Frown className="h-3 w-3 text-purple-600" />
                               <strong className="text-purple-700">{player.lisasTaken}</strong>
                             </span>
+                            </div>
+                            <div className="flex items-center gap-4 flex-wrap text-gray-700">
+                              <span className="whitespace-nowrap">
+                                Partidas: <strong>{player.totalGames}</strong>
+                              </span>
+                              <span className="whitespace-nowrap text-green-700">
+                                Vitórias: <strong>{player.victories}</strong>
+                              </span>
+                              <span className="whitespace-nowrap text-red-700">
+                                Derrotas: <strong>{player.defeats}</strong>
+                              </span>
+                            </div>
                           </div>
                         </div>
 
@@ -242,7 +255,8 @@ export default function RankingPage() {
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-4 text-sm text-gray-600 overflow-x-auto pb-1">
+                          <div className="space-y-1.5 text-sm text-gray-600">
+                            <div className="flex items-center gap-4 flex-wrap">
                             <span className="whitespace-nowrap flex items-center gap-1">
                               <Flame className="h-3 w-3 text-yellow-600" />
                               <strong className="text-yellow-700">{player.lisasApplied}</strong>
@@ -252,6 +266,18 @@ export default function RankingPage() {
                               <Frown className="h-3 w-3 text-purple-600" />
                               <strong className="text-purple-700">{player.lisasTaken}</strong>
                             </span>
+                            </div>
+                            <div className="flex items-center gap-4 flex-wrap text-gray-700">
+                              <span className="whitespace-nowrap">
+                                Partidas: <strong>{player.totalGames}</strong>
+                              </span>
+                              <span className="whitespace-nowrap text-green-700">
+                                Vitórias: <strong>{player.victories}</strong>
+                              </span>
+                              <span className="whitespace-nowrap text-red-700">
+                                Derrotas: <strong>{player.defeats}</strong>
+                              </span>
+                            </div>
                           </div>
                         </div>
 
