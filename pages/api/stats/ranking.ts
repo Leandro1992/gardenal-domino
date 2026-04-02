@@ -11,7 +11,7 @@ interface User {
   role: string;
 }
 
-type RankingMode = "general" | "lisa";
+type RankingMode = "general" | "lisa" | "lisa-defeat-only";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
@@ -24,7 +24,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const mode: RankingMode = req.query.mode === "lisa" ? "lisa" : "general";
+    const modeQuery = req.query.mode;
+    const mode: RankingMode =
+      modeQuery === "lisa" || modeQuery === "lisa-defeat-only"
+        ? modeQuery
+        : "general";
 
     const usersSnap = await db.collection("users").get();
     const users = usersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as User));
@@ -75,7 +79,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       });
 
-      const score = victories + lisasApplied * 2 - defeats - lisasTaken * 2;
+      let score = victories + lisasApplied * 2 - defeats - lisasTaken * 2;
+
+      if (mode === "lisa-defeat-only") {
+        score = victories + lisasApplied * 2 - lisasTaken * 2;
+      }
 
       return {
         id: user.id,
@@ -99,6 +107,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (a.lisasTaken !== b.lisasTaken) return a.lisasTaken - b.lisasTaken;
         if (b.victories !== a.victories) return b.victories - a.victories;
         return b.score - a.score;
+      });
+    } else if (mode === "lisa-defeat-only") {
+      ranking.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        if (b.victories !== a.victories) return b.victories - a.victories;
+        if (b.lisasApplied !== a.lisasApplied) return b.lisasApplied - a.lisasApplied;
+        return a.lisasTaken - b.lisasTaken;
       });
     } else {
       ranking.sort((a, b) => {
