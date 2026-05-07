@@ -24,9 +24,9 @@ let inFlightAuthRequest: Promise<void> | null = null;
 const subscribers = new Set<(snapshot: AuthSnapshot) => void>();
 
 function notifySubscribers() {
-  for (const subscriber of subscribers) {
+  subscribers.forEach((subscriber) => {
     subscriber(authSnapshot);
-  }
+  });
 }
 
 function setAuthSnapshot(next: AuthSnapshot) {
