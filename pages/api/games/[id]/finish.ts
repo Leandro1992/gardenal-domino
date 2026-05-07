@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import FirebaseConnection from '../../../../lib/firebaseAdmin';
 import * as admin from 'firebase-admin';
 import { getCurrentUser } from "../../../../lib/auth";
+import { clearCacheByPrefix } from "../../../../lib/serverCache";
 
 const db = FirebaseConnection.getInstance().db;
 
@@ -67,6 +68,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return { ...update, lisa: lisaPlayers.length > 0 };
     })
     .then((result) => {
+      clearCacheByPrefix("games:list:");
+      clearCacheByPrefix("stats:");
+
       res.json({ 
         ok: true, 
         finished: true,

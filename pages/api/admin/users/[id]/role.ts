@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { getCurrentUser } from "../../../../../lib/auth";
 import FirebaseConnection from "../../../../../lib/firebaseAdmin";
+import { clearCache, clearCacheByPrefix } from "../../../../../lib/serverCache";
 
 const db = FirebaseConnection.getInstance().db;
 
@@ -26,6 +27,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       role, 
       updatedAt: new Date() 
     });
+
+    clearCache(`users:item:${id}`);
+    clearCacheByPrefix("users:list:");
+    clearCacheByPrefix("users:admin:");
+    clearCacheByPrefix("stats:");
     
     return res.json({ ok: true, role });
   }

@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import FirebaseConnection from '../../../../../lib/firebaseAdmin';
 import { getCurrentUser } from "../../../../../lib/auth";
 import * as admin from 'firebase-admin';
+import { clearCacheByPrefix } from "../../../../../lib/serverCache";
 
 const db = FirebaseConnection.getInstance().db;
 
@@ -68,6 +69,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         tx.update(gameRef, update);
         return update;
       });
+
+      clearCacheByPrefix("games:list:");
+      clearCacheByPrefix("stats:");
 
       res.json({ 
         message: "Round deleted successfully",

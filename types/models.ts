@@ -25,6 +25,7 @@ export interface Game {
   createdAt?: FirestoreTimestamp;
   teamA: [string, string]; // userIds
   teamB: [string, string];
+  participants?: string[];
   rounds?: Round[];
   teamA_total: number;
   teamB_total: number;

@@ -2,8 +2,54 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { getCurrentUser } from "../../../lib/auth";
 import FirebaseConnection from "../../../lib/firebaseAdmin";
 import * as admin from 'firebase-admin';
+import { clearCacheByPrefix, getCache, setCache } from "../../../lib/serverCache";
 
 const db = FirebaseConnection.getInstance().db;
+const GAMES_CACHE_TTL_MS = 20 * 1000;
+const USER_CACHE_TTL_MS = 5 * 60 * 1000;
+
+function parsePositiveInt(value: unknown, fallback: number, max = 100): number {
+  if (typeof value !== "string") return fallback;
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.min(parsed, max);
+}
+
+function getCreatedAtScore(gameData: any): number {
+  const seconds = gameData?.createdAt?.seconds || 0;
+  const nanoseconds = gameData?.createdAt?.nanoseconds || 0;
+  return seconds * 1_000_000_000 + nanoseconds;
+}
+
+async function getUsersMap(userIds: string[]) {
+  const usersMap = new Map<string, { id: string; name: string }>();
+  const missingUserIds: string[] = [];
+
+  userIds.forEach((id) => {
+    const cachedUser = getCache<{ id: string; name: string }>(`users:item:${id}`);
+    if (cachedUser) {
+      usersMap.set(id, cachedUser);
+      return;
+    }
+    missingUserIds.push(id);
+  });
+
+  if (missingUserIds.length > 0) {
+    const userDocs = await Promise.all(
+      missingUserIds.map((id) => db.collection("users").doc(id).get())
+    );
+
+    userDocs.forEach((doc) => {
+      if (!doc.exists) return;
+      const data: any = doc.data();
+      const user = { id: doc.id, name: data?.name || data?.email || "Unknown" };
+      usersMap.set(doc.id, user);
+      setCache(`users:item:${doc.id}`, user, USER_CACHE_TTL_MS);
+    });
+  }
+
+  return usersMap;
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const current = await getCurrentUser(req);
@@ -22,12 +68,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const usersCheck = await Promise.all(unique.map((id) => db.collection("users").doc(id).get()));
     if (usersCheck.some((d) => !d.exists)) return res.status(400).json({ error: "All players must exist" });
 
-    // Verificar se algum jogador já está em partida ativa
-    const activeGamesSnap = await db.collection("games").where("finished", "==", false).get();
+    // Verificar se algum jogador já está em partida ativa sem varrer toda a coleção.
+    let activeGameDocs: any[] = [];
+    try {
+      const [participantsSnap, teamASnap, teamBSnap] = await Promise.all([
+        db.collection("games")
+          .where("finished", "==", false)
+          .where("participants", "array-contains-any", unique)
+          .get(),
+        db.collection("games")
+          .where("finished", "==", false)
+          .where("teamA", "array-contains-any", unique)
+          .get(),
+        db.collection("games")
+          .where("finished", "==", false)
+          .where("teamB", "array-contains-any", unique)
+          .get(),
+      ]);
+
+      const docsMap = new Map<string, any>();
+      participantsSnap.docs.forEach((doc) => docsMap.set(doc.id, doc));
+      teamASnap.docs.forEach((doc) => docsMap.set(doc.id, doc));
+      teamBSnap.docs.forEach((doc) => docsMap.set(doc.id, doc));
+      activeGameDocs = Array.from(docsMap.values());
+    } catch {
+      // Fallback para ambientes sem índice composto criado ainda.
+      const activeGamesSnap = await db.collection("games").where("finished", "==", false).get();
+      activeGameDocs = activeGamesSnap.docs;
+    }
+
     const activePlayers = new Set<string>();
-    
-    activeGamesSnap.docs.forEach((doc) => {
+    activeGameDocs.forEach((doc) => {
       const data: any = doc.data();
+      (data.participants || []).forEach((id: string) => activePlayers.add(id));
       (data.teamA || []).forEach((id: string) => activePlayers.add(id));
       (data.teamB || []).forEach((id: string) => activePlayers.add(id));
     });
@@ -50,12 +123,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       createdAt: admin.firestore.Timestamp.now(),
       teamA,
       teamB,
+      participants: unique,
       rounds: [],
       teamA_total: 0,
       teamB_total: 0,
       finished: false,
     };
     const ref = await db.collection("games").add(game);
+
+    clearCacheByPrefix("games:list:");
+    clearCacheByPrefix("stats:");
     
     // Get player names for response
     const players = await Promise.all(
@@ -83,42 +160,77 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === "GET") {
     const gamesCollection = db.collection("games");
     const mine = req.query.mine === "true" || req.query.mine === "1";
+    const limit = parsePositiveInt(req.query.limit, 50);
+    const cursor = typeof req.query.cursor === "string" ? req.query.cursor : "";
+
+    const cacheKey = `games:list:${current.id}:mine=${mine}:limit=${limit}:cursor=${cursor}`;
+    const cached = getCache<any>(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
 
     let totalGames = 0;
     let gameDocs: any[] = [];
+    let nextCursor: string | null = null;
 
     if (mine) {
-      const [teamASnap, teamBSnap] = await Promise.all([
-        gamesCollection.where("teamA", "array-contains", current.id).get(),
-        gamesCollection.where("teamB", "array-contains", current.id).get(),
-      ]);
+      const participantsSnap = await gamesCollection
+        .where("participants", "array-contains", current.id)
+        .get();
 
-      const docsMap = new Map<string, any>();
-      [...teamASnap.docs, ...teamBSnap.docs].forEach((doc) => docsMap.set(doc.id, doc));
+      if (!participantsSnap.empty) {
+        gameDocs = participantsSnap.docs;
+      } else {
+        const [teamASnap, teamBSnap] = await Promise.all([
+          gamesCollection.where("teamA", "array-contains", current.id).get(),
+          gamesCollection.where("teamB", "array-contains", current.id).get(),
+        ]);
 
-      gameDocs = Array.from(docsMap.values()).sort((a, b) => {
-        const aData: any = a.data();
-        const bData: any = b.data();
-        const aSec = aData.createdAt?.seconds || 0;
-        const bSec = bData.createdAt?.seconds || 0;
-        if (bSec !== aSec) return bSec - aSec;
-        const aNano = aData.createdAt?.nanoseconds || 0;
-        const bNano = bData.createdAt?.nanoseconds || 0;
-        return bNano - aNano;
-      });
-
-      totalGames = gameDocs.length;
-    } else {
-      try {
-        const totalSnap = await gamesCollection.count().get();
-        totalGames = totalSnap.data().count;
-      } catch {
-        const totalSnapFallback = await gamesCollection.get();
-        totalGames = totalSnapFallback.size;
+        const docsMap = new Map<string, any>();
+        teamASnap.docs.forEach((doc) => docsMap.set(doc.id, doc));
+        teamBSnap.docs.forEach((doc) => docsMap.set(doc.id, doc));
+        gameDocs = Array.from(docsMap.values());
       }
 
-      const snap = await gamesCollection.orderBy("createdAt", "desc").limit(50).get();
+      gameDocs.sort((a, b) => getCreatedAtScore(b.data()) - getCreatedAtScore(a.data()));
+      totalGames = gameDocs.length;
+
+      if (cursor) {
+        const cursorIndex = gameDocs.findIndex((doc) => doc.id === cursor);
+        if (cursorIndex >= 0) {
+          gameDocs = gameDocs.slice(cursorIndex + 1);
+        }
+      }
+
+      gameDocs = gameDocs.slice(0, limit);
+      nextCursor = gameDocs.length === limit ? gameDocs[gameDocs.length - 1]?.id || null : null;
+    } else {
+      const countCacheKey = "games:list:totalCount";
+      const cachedTotalCount = getCache<number>(countCacheKey);
+      if (cachedTotalCount !== null) {
+        totalGames = cachedTotalCount;
+      } else {
+        try {
+          const totalSnap = await gamesCollection.count().get();
+          totalGames = totalSnap.data().count;
+        } catch {
+          const totalSnapFallback = await gamesCollection.get();
+          totalGames = totalSnapFallback.size;
+        }
+        setCache(countCacheKey, totalGames, GAMES_CACHE_TTL_MS);
+      }
+
+      let query: any = gamesCollection.orderBy("createdAt", "desc").limit(limit);
+      if (cursor) {
+        const cursorDoc = await gamesCollection.doc(cursor).get();
+        if (cursorDoc.exists) {
+          query = query.startAfter(cursorDoc);
+        }
+      }
+
+      const snap = await query.get();
       gameDocs = snap.docs;
+      nextCursor = gameDocs.length === limit ? gameDocs[gameDocs.length - 1]?.id || null : null;
     }
 
     // Get all unique user IDs from selected games
@@ -129,18 +241,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       (data.teamB || []).forEach((id: string) => allUserIds.add(id));
     });
     
-    // Fetch all users in one batch
-    const userDocs = await Promise.all(
-      Array.from(allUserIds).map((id) => db.collection("users").doc(id).get())
-    );
-    
-    const usersMap = new Map();
-    userDocs.forEach((doc) => {
-      if (doc.exists) {
-        const data = doc.data();
-        usersMap.set(doc.id, { id: doc.id, name: data?.name || data?.email || "Unknown" });
-      }
-    });
+    const usersMap = await getUsersMap(Array.from(allUserIds));
     
     // Map games with populated player data
     const games = gameDocs.map((d) => {
@@ -151,6 +252,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         createdAt: data.createdAt ? { seconds: data.createdAt.seconds, nanoseconds: data.createdAt.nanoseconds } : null,
         teamA: (data.teamA || []).map((id: string) => usersMap.get(id) || { id, name: "Unknown" }),
         teamB: (data.teamB || []).map((id: string) => usersMap.get(id) || { id, name: "Unknown" }),
+        participants: data.participants || [...(data.teamA || []), ...(data.teamB || [])],
         rounds: data.rounds || [],
         teamA_total: data.teamA_total || 0,
         teamB_total: data.teamB_total || 0,
@@ -162,8 +264,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         finishedAt: data.finishedAt ? { seconds: data.finishedAt.seconds, nanoseconds: data.finishedAt.nanoseconds } : null
       };
     });
-    
-    return res.json({ games, totalGames });
+
+    const responseBody = { games, totalGames, nextCursor };
+    setCache(cacheKey, responseBody, GAMES_CACHE_TTL_MS);
+    return res.json(responseBody);
   }
 
   return res.status(405).end();

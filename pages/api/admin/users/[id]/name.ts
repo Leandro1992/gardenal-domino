@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { getCurrentUser } from "../../../../../lib/auth";
 import FirebaseConnection from "../../../../../lib/firebaseAdmin";
+import { clearCache, clearCacheByPrefix } from "../../../../../lib/serverCache";
 
 const db = FirebaseConnection.getInstance().db;
 
@@ -32,6 +33,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await userRef.update({
       name: name.trim()
     });
+
+    clearCache(`users:item:${id as string}`);
+    clearCacheByPrefix("users:list:");
+    clearCacheByPrefix("users:admin:");
+    clearCacheByPrefix("stats:");
 
     res.json({ message: "Nome atualizado com sucesso" });
   } catch (error) {

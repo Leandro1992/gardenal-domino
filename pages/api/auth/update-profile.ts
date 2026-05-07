@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { getCurrentUser } from "../../../lib/auth";
 import FirebaseConnection from "../../../lib/firebaseAdmin";
+import { clearCache, clearCacheByPrefix } from "../../../lib/serverCache";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "PUT") {
@@ -28,6 +29,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       name: name.trim(),
       updatedAt: new Date()
     });
+
+    clearCache(`users:item:${currentUser.id}`);
+    clearCacheByPrefix("users:list:");
+    clearCacheByPrefix("users:admin:");
+    clearCacheByPrefix("stats:");
 
     res.json({ success: true, message: "Nome atualizado com sucesso" });
   } catch (error) {

@@ -1,8 +1,10 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { getCurrentUser } from "../../../lib/auth";
 import FirebaseConnection from "../../../lib/firebaseAdmin";
+import { getCache, setCache } from "../../../lib/serverCache";
 
 const db = FirebaseConnection.getInstance().db;
+const USER_STATS_CACHE_TTL_MS = 60 * 1000;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
@@ -15,17 +17,52 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Buscar todas as partidas finalizadas onde o usuário participou
-    const gamesSnap = await db.collection("games")
-      .where("finished", "==", true)
-      .get();
+    const cacheKey = `stats:me:${currentUser.id}`;
+    const cached = getCache<any>(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
+    // Busca otimizada: jogos finalizados em que o usuário participou.
+    let gameDocs: any[] = [];
+    try {
+      const participantsSnap = await db.collection("games")
+        .where("finished", "==", true)
+        .where("participants", "array-contains", currentUser.id)
+        .get();
+
+      if (!participantsSnap.empty) {
+        gameDocs = participantsSnap.docs;
+      } else {
+        const [teamASnap, teamBSnap] = await Promise.all([
+          db.collection("games")
+            .where("finished", "==", true)
+            .where("teamA", "array-contains", currentUser.id)
+            .get(),
+          db.collection("games")
+            .where("finished", "==", true)
+            .where("teamB", "array-contains", currentUser.id)
+            .get(),
+        ]);
+
+        const docsMap = new Map<string, any>();
+        teamASnap.docs.forEach((doc) => docsMap.set(doc.id, doc));
+        teamBSnap.docs.forEach((doc) => docsMap.set(doc.id, doc));
+        gameDocs = Array.from(docsMap.values());
+      }
+    } catch {
+      const fullFinishedSnap = await db.collection("games")
+        .where("finished", "==", true)
+        .get();
+      gameDocs = fullFinishedSnap.docs;
+    }
 
     let victories = 0;
     let defeats = 0;
     let lisasApplied = 0;
     let lisasTaken = 0;
 
-    gamesSnap.docs.forEach((doc) => {
+    gameDocs.forEach((doc) => {
       const game: any = doc.data();
       const teamAIds = game.teamA || [];
       const teamBIds = game.teamB || [];
@@ -85,7 +122,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     });
 
-    res.json({
+    const responseBody = {
       stats: {
         victories,
         defeats,
@@ -93,7 +130,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         lisasTaken,
         totalGames: victories + defeats
       }
-    });
+    };
+
+    setCache(cacheKey, responseBody, USER_STATS_CACHE_TTL_MS);
+    res.json(responseBody);
   } catch (error) {
     console.error("Error fetching user stats:", error);
     res.status(500).json({ error: "Internal server error" });

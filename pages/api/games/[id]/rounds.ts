@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import FirebaseConnection from '../../../../lib/firebaseAdmin';
 import * as admin from 'firebase-admin';
+import { clearCacheByPrefix } from "../../../../lib/serverCache";
 
 const db = FirebaseConnection.getInstance().db;
 import { getCurrentUser } from "../../../../lib/auth";
@@ -62,6 +63,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Buscar dados completos da partida atualizada
     const snap = await gameRef.get();
     const gameData = snap.data();
+
+    clearCacheByPrefix("games:list:");
+    clearCacheByPrefix("stats:");
+
     res.json({ 
       ok: true, 
       game: {

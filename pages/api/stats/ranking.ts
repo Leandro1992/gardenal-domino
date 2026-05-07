@@ -1,8 +1,10 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { getCurrentUser } from "../../../lib/auth";
 import FirebaseConnection from "../../../lib/firebaseAdmin";
+import { getCache, setCache } from "../../../lib/serverCache";
 
 const db = FirebaseConnection.getInstance().db;
+const RANKING_CACHE_TTL_MS = 90 * 1000;
 
 interface User {
   id: string;
@@ -29,6 +31,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       modeQuery === "lisa" || modeQuery === "lisa-defeat-only"
         ? modeQuery
         : "general";
+
+    const cacheKey = `stats:ranking:${mode}`;
+    const cached = getCache<any>(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
 
     const usersSnap = await db.collection("users").get();
     const users = usersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as User));
@@ -125,7 +133,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const rankingWithGames = ranking.filter((player) => player.totalGames > 0);
 
-    return res.json({ ranking: rankingWithGames, mode });
+    const responseBody = { ranking: rankingWithGames, mode };
+    setCache(cacheKey, responseBody, RANKING_CACHE_TTL_MS);
+    return res.json(responseBody);
   } catch (error) {
     console.error("Error fetching ranking:", error);
     return res.status(500).json({ error: "Internal server error" });

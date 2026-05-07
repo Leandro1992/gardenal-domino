@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { getCurrentUser, comparePassword, hashPassword } from "../../../lib/auth";
 import FirebaseConnection from "../../../lib/firebaseAdmin";
+import { clearCacheByPrefix } from "../../../lib/serverCache";
 
 const db = FirebaseConnection.getInstance().db;
 
@@ -19,5 +20,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const newHash = await hashPassword(newPassword);
   await db.collection("users").doc(current.id).update({ passwordHash: newHash, updatedAt: new Date() });
+  clearCacheByPrefix("users:admin:");
   res.json({ ok: true });
 }

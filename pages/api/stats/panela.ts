@@ -1,8 +1,10 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { getCurrentUser } from "../../../lib/auth";
 import FirebaseConnection from "../../../lib/firebaseAdmin";
+import { getCache, setCache } from "../../../lib/serverCache";
 
 const db = FirebaseConnection.getInstance().db;
+const PANELA_CACHE_TTL_MS = 90 * 1000;
 
 interface User {
   id: string;
@@ -35,6 +37,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
+    const cacheKey = "stats:panela";
+    const cached = getCache<any>(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
     const [usersSnap, gamesSnap] = await Promise.all([
       db.collection("users").get(),
       db.collection("games").where("finished", "==", true).get(),
@@ -94,7 +102,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return pairNameA.localeCompare(pairNameB);
       });
 
-    return res.json({ pairs });
+    const responseBody = { pairs };
+    setCache(cacheKey, responseBody, PANELA_CACHE_TTL_MS);
+    return res.json(responseBody);
   } catch (error) {
     console.error("Error fetching pair frequency:", error);
     return res.status(500).json({ error: "Internal server error" });
