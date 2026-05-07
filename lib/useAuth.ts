@@ -7,28 +7,88 @@ interface User {
   role: 'admin' | 'user';
 }
 
+type AuthSnapshot = {
+  user: User | null;
+  loading: boolean;
+};
+
+const AUTH_CACHE_TTL_MS = 60 * 1000;
+
+let authSnapshot: AuthSnapshot = {
+  user: null,
+  loading: true,
+};
+
+let lastAuthSyncAt = 0;
+let inFlightAuthRequest: Promise<void> | null = null;
+const subscribers = new Set<(snapshot: AuthSnapshot) => void>();
+
+function notifySubscribers() {
+  for (const subscriber of subscribers) {
+    subscriber(authSnapshot);
+  }
+}
+
+function setAuthSnapshot(next: AuthSnapshot) {
+  authSnapshot = next;
+  notifySubscribers();
+}
+
+async function syncAuth(force = false): Promise<void> {
+  const cacheIsFresh = Date.now() - lastAuthSyncAt < AUTH_CACHE_TTL_MS;
+  if (!force && cacheIsFresh) {
+    return;
+  }
+
+  if (inFlightAuthRequest) {
+    return inFlightAuthRequest;
+  }
+
+  inFlightAuthRequest = (async () => {
+    setAuthSnapshot({ ...authSnapshot, loading: true });
+
+    try {
+      const response = await fetch('/api/auth/me');
+
+      if (response.ok) {
+        const data = await response.json();
+        setAuthSnapshot({ user: data.user, loading: false });
+      } else {
+        setAuthSnapshot({ user: null, loading: false });
+      }
+    } catch (error) {
+      setAuthSnapshot({ user: null, loading: false });
+    } finally {
+      lastAuthSyncAt = Date.now();
+      inFlightAuthRequest = null;
+    }
+  })();
+
+  return inFlightAuthRequest;
+}
+
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(authSnapshot.user);
+  const [loading, setLoading] = useState(authSnapshot.loading);
 
   useEffect(() => {
-    checkAuth();
+    const onSnapshotChange = (snapshot: AuthSnapshot) => {
+      setUser(snapshot.user);
+      setLoading(snapshot.loading);
+    };
+
+    subscribers.add(onSnapshotChange);
+    onSnapshotChange(authSnapshot);
+
+    syncAuth(false);
+
+    return () => {
+      subscribers.delete(onSnapshotChange);
+    };
   }, []);
 
   const checkAuth = async () => {
-    try {
-      const response = await fetch('/api/auth/me');
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data.user);
-      } else {
-        setUser(null);
-      }
-    } catch (error) {
-      setUser(null);
-    } finally {
-      setLoading(false);
-    }
+    await syncAuth(true);
   };
 
   const login = async (email: string, password: string) => {
@@ -43,12 +103,13 @@ export function useAuth() {
       throw new Error(error.message || 'Erro ao fazer login');
     }
 
-    await checkAuth();
+    await syncAuth(true);
   };
 
   const logout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
-    setUser(null);
+    lastAuthSyncAt = Date.now();
+    setAuthSnapshot({ user: null, loading: false });
   };
 
   return { user, loading, login, logout, checkAuth };
