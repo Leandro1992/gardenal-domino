@@ -1,10 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/lib/useAuth';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
-import { Loader2, Trophy, Plus, Award, Search, Calendar } from 'lucide-react';
+import { Select } from '@/components/ui/Select';
+import { Loader2, Trophy, Plus, Award, Search, Calendar, Download } from 'lucide-react';
 import Link from 'next/link';
+import { useAllUsers, useSearchGames } from '@/lib/useAppData';
+import { exportToExcel } from '@/lib/exportToExcel';
 
 interface Game {
   id: string;
@@ -21,32 +24,97 @@ interface Game {
 export default function GamesPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [games, setGames] = useState<Game[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'active' | 'finished'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [dateFilter, setDateFilter] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [selectedPlayerId, setSelectedPlayerId] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [allFetchedGames, setAllFetchedGames] = useState<Game[]>([]);
+  const [pageSize] = useState(10);
 
-  useEffect(() => {
+  // Fetch players list
+  const { data: usersData, isLoading: usersLoading } = useAllUsers();
+  const users = (usersData?.users || []).map((user) => ({
+    id: user.id,
+    name: user.name || user.email || 'Unknown',
+  }));
+
+  // Fetch games based on current filters
+  const { data: searchData, isLoading: gamesLoading } = useSearchGames(
+    selectedPlayerId || undefined,
+    startDate || undefined,
+    endDate || undefined,
+    pageSize,
+    cursor || undefined,
+    true
+  );
+
+  React.useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
-    } else if (user) {
-      fetchGames();
     }
   }, [user, loading, router]);
 
-  const fetchGames = async () => {
-    try {
-      const response = await fetch('/api/games');
-      if (response.ok) {
-        const data = await response.json();
-        setGames(data.games || []);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar partidas:', error);
-    } finally {
-      setIsLoading(false);
+  const games = searchData?.games || [];
+  const hasMore = searchData?.hasMore || false;
+  const nextCursor = searchData?.nextCursor || null;
+
+  const handleSearch = () => {
+    // Reset pagination
+    setCursor(null);
+    setAllFetchedGames([]);
+  };
+
+  const handleClearFilters = () => {
+    setSelectedPlayerId('');
+    setStartDate('');
+    setEndDate('');
+    setCursor(null);
+    setAllFetchedGames([]);
+    setShowAdvanced(false);
+  };
+
+  const handleLoadMore = () => {
+    if (nextCursor) {
+      setCursor(nextCursor);
+      setAllFetchedGames([...allFetchedGames, ...games]);
     }
+  };
+
+  const handleExportToExcel = () => {
+    const allGames = cursor ? [...allFetchedGames, ...games] : games;
+    const filename = `partidas-${new Date().toISOString().split('T')[0]}.xlsx`;
+    exportToExcel(allGames, filename);
+  };
+
+  const formatGameDate = (createdAt: any) => {
+    if (!createdAt) return 'Data nao disponivel';
+
+    if (createdAt instanceof Date && !Number.isNaN(createdAt.getTime())) {
+      return createdAt.toLocaleDateString('pt-BR');
+    }
+
+    if (typeof createdAt === 'string' || typeof createdAt === 'number') {
+      const parsed = new Date(createdAt);
+      if (!Number.isNaN(parsed.getTime())) return parsed.toLocaleDateString('pt-BR');
+    }
+
+    if (typeof createdAt === 'object') {
+      if (typeof createdAt.toDate === 'function') {
+        const parsed = createdAt.toDate();
+        if (parsed instanceof Date && !Number.isNaN(parsed.getTime())) {
+          return parsed.toLocaleDateString('pt-BR');
+        }
+      }
+
+      const seconds = createdAt.seconds ?? createdAt._seconds;
+      if (typeof seconds === 'number') {
+        const parsed = new Date(seconds * 1000);
+        if (!Number.isNaN(parsed.getTime())) return parsed.toLocaleDateString('pt-BR');
+      }
+    }
+
+    return 'Data nao disponivel';
   };
 
   if (loading || !user) {
@@ -57,54 +125,20 @@ export default function GamesPage() {
     );
   }
 
-  const filteredGames = games.filter((game) => {
-    // Filter by status
-    if (filter === 'active' && game.finished) return false;
-    if (filter === 'finished' && !game.finished) return false;
-    
-    // Filter by search query (player names)
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      const allPlayers = [...game.teamA, ...game.teamB];
-      const hasMatchingPlayer = allPlayers.some(player => 
-        player.name.toLowerCase().includes(query)
-      );
-      if (!hasMatchingPlayer) return false;
-    }
-    
-    // Filter by date
-    if (dateFilter) {
-      if (!game.createdAt?.seconds) return false;
-      const gameDate = new Date(game.createdAt.seconds * 1000);
-      const filterDateParts = dateFilter.split('-'); // YYYY-MM-DD
-      
-      if (filterDateParts.length === 3) {
-        const filterYear = parseInt(filterDateParts[0]);
-        const filterMonth = parseInt(filterDateParts[1]);
-        const filterDay = parseInt(filterDateParts[2]);
-        
-        const gameYear = gameDate.getFullYear();
-        const gameMonth = gameDate.getMonth() + 1; // getMonth() returns 0-11
-        const gameDay = gameDate.getDate();
-        
-        if (gameYear !== filterYear || gameMonth !== filterMonth || gameDay !== filterDay) {
-          return false;
-        }
-      }
-    }
-    
-    return true;
-  });
+  const displayedGames = cursor ? allFetchedGames.concat(games) : games;
+  const isSearching = selectedPlayerId || startDate || endDate;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-            Todas as Partidas
+            Partidas
           </h1>
           <p className="text-gray-600 mt-1">
-            {filteredGames.length} partida{filteredGames.length !== 1 ? 's' : ''} encontrada{filteredGames.length !== 1 ? 's' : ''}
+            {isSearching
+              ? `${displayedGames.length} partida${displayedGames.length !== 1 ? 's' : ''} encontrada${displayedGames.length !== 1 ? 's' : ''}`
+              : 'Buscar e consultar partidas por jogador ou período'}
           </p>
         </div>
         <Link href="/games/new">
@@ -119,89 +153,115 @@ export default function GamesPage() {
       <Card>
         <CardContent className="pt-6">
           <div className="space-y-4">
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              <Button
-                variant={filter === 'all' ? 'primary' : 'secondary'}
-                size="sm"
-                onClick={() => setFilter('all')}
-              >
-                Todas
-              </Button>
-              <Button
-                variant={filter === 'active' ? 'primary' : 'secondary'}
-                size="sm"
-                onClick={() => setFilter('active')}
-              >
-                Em Andamento
-              </Button>
-              <Button
-                variant={filter === 'finished' ? 'primary' : 'secondary'}
-                size="sm"
-                onClick={() => setFilter('finished')}
-              >
-                Finalizadas
-              </Button>
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar por nome do jogador..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                />
-              </div>
-              
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="date"
-                  value={dateFilter}
-                  onChange={(e) => setDateFilter(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-            
-            {(searchQuery || dateFilter) && (
-              <div className="flex gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setDateFilter('');
-                  }}
+            {/* Basic Filter - Player Select */}
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <h3 className="text-sm font-semibold text-gray-700">Filtros</h3>
+                <button
+                  onClick={() => setShowAdvanced(!showAdvanced)}
+                  className="text-xs text-primary-600 hover:text-primary-700 font-medium"
                 >
-                  Limpar Filtros
-                </Button>
+                  {showAdvanced ? 'Ocultar' : 'Mostrar'} busca avançada
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Select
+                  label="Filtrar por jogador"
+                  placeholder="Todos os jogadores"
+                  value={selectedPlayerId}
+                  onChange={setSelectedPlayerId}
+                  options={users}
+                  disabled={usersLoading}
+                />
+              </div>
+            </div>
+
+            {/* Advanced Filters */}
+            {showAdvanced && (
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                  Busca por Período (Auditoria)
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Data Inicial
+                    </label>
+                    <div className="relative">
+                      <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Data Final
+                    </label>
+                    <div className="relative">
+                      <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
+
+            {/* Action Buttons */}
+            <div className="flex flex-wrap gap-2 pt-2 border-t">
+              <Button size="sm" onClick={handleSearch} disabled={gamesLoading || usersLoading}>
+                Buscar
+              </Button>
+
+              {isSearching && (
+                <>
+                  <Button variant="ghost" size="sm" onClick={handleClearFilters}>
+                    Limpar Filtros
+                  </Button>
+                  {displayedGames.length > 0 && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleExportToExcel}
+                      disabled={gamesLoading}
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      Exportar Excel
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Games List */}
-      {isLoading ? (
+      {gamesLoading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
         </div>
-      ) : filteredGames.length === 0 ? (
+      ) : displayedGames.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <Trophy className="mx-auto h-12 w-12 text-gray-400 mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Nenhuma partida encontrada
+              {isSearching ? 'Nenhuma partida encontrada' : 'Nenhuma partida para exibir'}
             </h3>
             <p className="text-gray-500 mb-6">
-              {filter === 'all'
-                ? 'Comece criando sua primeira partida'
-                : filter === 'active'
-                ? 'Não há partidas em andamento no momento'
-                : 'Não há partidas finalizadas ainda'}
+              {isSearching
+                ? 'Nenhuma partida encontrada com os filtros aplicados'
+                : 'Use os filtros acima para buscar partidas'}
             </p>
             <Link href="/games/new">
               <Button>
@@ -212,8 +272,8 @@ export default function GamesPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
-          {filteredGames.map((game) => {
+        <div className="space-y-4">
+          {displayedGames.map((game) => {
             const winner = game.finished
               ? (game.winnerTeam ?? (game.scoreA >= 100 ? 'A' : 'B'))
               : null;
@@ -242,7 +302,7 @@ export default function GamesPage() {
                           )}
                         </div>
                         <span className="text-sm text-gray-500">
-                          {game.createdAt?.seconds ? new Date(game.createdAt.seconds * 1000).toLocaleDateString('pt-BR') : 'Data não disponível'}
+                          {formatGameDate(game.createdAt)}
                         </span>
                       </div>
 
@@ -293,6 +353,26 @@ export default function GamesPage() {
               </Link>
             );
           })}
+
+          {/* Pagination */}
+          {hasMore && (
+            <div className="flex justify-center pt-4">
+              <Button
+                onClick={handleLoadMore}
+                disabled={gamesLoading}
+                variant="secondary"
+              >
+                {gamesLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Carregando...
+                  </>
+                ) : (
+                  'Carregar Mais'
+                )}
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>

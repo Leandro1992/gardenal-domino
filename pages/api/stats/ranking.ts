@@ -13,7 +13,7 @@ interface User {
   role: string;
 }
 
-type RankingMode = "general" | "lisa" | "lisa-defeat-only";
+type RankingMode = "general" | "lisa";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
@@ -28,8 +28,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const modeQuery = req.query.mode;
     const mode: RankingMode =
-      modeQuery === "lisa" || modeQuery === "lisa-defeat-only"
-        ? modeQuery
+      modeQuery === "lisa"
+        ? "lisa"
         : "general";
 
     const cacheKey = `stats:ranking:${mode}`;
@@ -87,11 +87,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       });
 
-      let score = victories + lisasApplied * 2 - defeats - lisasTaken * 2;
-
-      if (mode === "lisa-defeat-only") {
-        score = victories + lisasApplied * 2 - lisasTaken * 2;
-      }
+      const score = victories + lisasApplied * 2 - defeats - lisasTaken * 2;
 
       return {
         id: user.id,
@@ -115,13 +111,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (a.lisasTaken !== b.lisasTaken) return a.lisasTaken - b.lisasTaken;
         if (b.victories !== a.victories) return b.victories - a.victories;
         return b.score - a.score;
-      });
-    } else if (mode === "lisa-defeat-only") {
-      ranking.sort((a, b) => {
-        if (b.score !== a.score) return b.score - a.score;
-        if (b.victories !== a.victories) return b.victories - a.victories;
-        if (b.lisasApplied !== a.lisasApplied) return b.lisasApplied - a.lisasApplied;
-        return a.lisasTaken - b.lisasTaken;
       });
     } else {
       ranking.sort((a, b) => {

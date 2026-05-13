@@ -1,48 +1,23 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/lib/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Loader2, Users } from 'lucide-react';
-
-interface PairFrequency {
-  pairKey: string;
-  player1Id: string;
-  player1Name: string;
-  player2Id: string;
-  player2Name: string;
-  gamesTogether: number;
-}
+import { usePanelaData } from '@/lib/useAppData';
 
 export default function PanelaPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [pairs, setPairs] = useState<PairFrequency[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data, isLoading } = usePanelaData();
   const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
-    } else if (user) {
-      fetchPairs();
-    }
-  }, [user, loading, router]);
+  if (!loading && !user) {
+    router.push('/login');
+    return null;
+  }
 
-  const fetchPairs = async () => {
-    try {
-      const response = await fetch('/api/stats/panela');
-      if (response.ok) {
-        const data = await response.json();
-        setPairs(data.pairs || []);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar frequência de duplas:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  const pairs = data?.pairs || [];
   const filteredPairs = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return pairs;

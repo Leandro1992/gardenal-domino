@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
 import { Loader2, ArrowLeft, Plus, Trophy, Award, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
+import { mutate } from 'swr';
+import { appDataKeys } from '@/lib/useAppData';
 
 interface Player {
   id: string;
@@ -49,6 +51,18 @@ export default function GameDetailPage() {
   const [deletingRound, setDeletingRound] = useState<number | null>(null);
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [finishing, setFinishing] = useState(false);
+
+  const refreshSharedData = async () => {
+    await Promise.all([
+      mutate(appDataKeys.dashboard(12)),
+      mutate(appDataKeys.gamesActive(100)),
+      mutate(appDataKeys.rankingGeneral),
+      mutate(appDataKeys.rankingLisa),
+      mutate(appDataKeys.panela),
+      // Invalidate search cache patterns
+      mutate((key) => typeof key === 'string' && key.includes('/api/games/search'), undefined, false),
+    ]);
+  };
 
   useEffect(() => {
     if (!loading && !user) {
@@ -130,7 +144,7 @@ export default function GameDetailPage() {
         setTimeout(() => setShowLisaAnimation(false), 5000);
       }
       
-      await fetchGame();
+      await Promise.all([fetchGame(), refreshSharedData()]);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -153,6 +167,8 @@ export default function GameDetailPage() {
         const data = await response.json();
         throw new Error(data.error || 'Erro ao cancelar partida');
       }
+
+      await refreshSharedData();
 
       router.push('/');
     } catch (err: any) {
@@ -177,7 +193,7 @@ export default function GameDetailPage() {
         throw new Error(data.error || 'Erro ao excluir rodada');
       }
 
-      await fetchGame();
+      await Promise.all([fetchGame(), refreshSharedData()]);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -210,7 +226,7 @@ export default function GameDetailPage() {
         setTimeout(() => setShowLisaAnimation(false), 5000);
       }
       
-      await fetchGame();
+      await Promise.all([fetchGame(), refreshSharedData()]);
     } catch (err: any) {
       setError(err.message);
     } finally {

@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/lib/useAuth';
 import { Button } from '@/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Plus, Trophy, TrendingUp, Users, Loader2, Award, Target, Flame, Frown } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/Card';
+import { Plus, Trophy, TrendingUp, Loader2, Target, Flame, Frown } from 'lucide-react';
 import Link from 'next/link';
+import { useDashboardSummary } from '@/lib/useAppData';
 
 interface Game {
   id: string;
@@ -30,64 +31,13 @@ interface UserStats {
 export default function HomePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [games, setGames] = useState<Game[]>([]);
-  const [myGames, setMyGames] = useState<Game[]>([]);
-  const [myGamesLoading, setMyGamesLoading] = useState(true);
-  const [totalGamesCount, setTotalGamesCount] = useState(0);
-  const [userStats, setUserStats] = useState<UserStats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data, isLoading } = useDashboardSummary(12);
 
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
-    } else if (user) {
-      fetchGames();
-      fetchMyGames();
-      fetchUserStats();
     }
   }, [user, loading, router]);
-
-  const fetchGames = async () => {
-    try {
-      const response = await fetch('/api/games');
-      if (response.ok) {
-        const data = await response.json();
-        const list = data.games || [];
-        setGames(list);
-        setTotalGamesCount(typeof data.totalGames === 'number' ? data.totalGames : list.length);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar partidas:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const fetchMyGames = async () => {
-    try {
-      const response = await fetch('/api/games?mine=true');
-      if (response.ok) {
-        const data = await response.json();
-        setMyGames(data.games || []);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar minhas partidas:', error);
-    } finally {
-      setMyGamesLoading(false);
-    }
-  };
-
-  const fetchUserStats = async () => {
-    try {
-      const response = await fetch('/api/stats/me');
-      if (response.ok) {
-        const data = await response.json();
-        setUserStats(data.stats);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar estatísticas:', error);
-    }
-  };
 
   if (loading || !user) {
     return (
@@ -97,8 +47,10 @@ export default function HomePage() {
     );
   }
 
-  const activeGames = games.filter(g => !g.finished);
-  const finishedGames = games.filter(g => g.finished);
+  const activeGames = data?.activeGames || [];
+  const totalGamesCount = typeof data?.totalGames === 'number' ? data.totalGames : activeGames.length;
+  const activeGamesCount = typeof data?.activeGamesCount === 'number' ? data.activeGamesCount : activeGames.length;
+  const userStats: UserStats | null = data?.userStats || null;
 
   return (
     <div className="space-y-6">
@@ -189,7 +141,7 @@ export default function HomePage() {
                 <TrendingUp className="h-6 w-6 text-blue-600" />
               </div>
               <p className="text-sm font-medium text-gray-500 mb-1">Em Andamento</p>
-              <p className="text-2xl font-bold text-gray-900">{activeGames.length}</p>
+              <p className="text-2xl font-bold text-gray-900">{activeGamesCount}</p>
             </div>
           </CardContent>
         </Card>
@@ -243,182 +195,13 @@ export default function HomePage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {/* Recent Finished Games */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900">
-              Partidas Recentes
-            </h2>
-            <Link href="/games">
-              <Button variant="ghost" size="sm">
-                Ver todas
-              </Button>
-            </Link>
-          </div>
-
-          {finishedGames.length > 0 ? (
-            <div className="grid gap-4">
-              {finishedGames.slice(0, 5).map((game) => {
-                const winner = game.winnerTeam ?? (game.scoreA >= 100 ? 'A' : 'B');
-
-                return (
-                  <Link key={game.id} href={`/games/${game.id}`} legacyBehavior>
-                    <a>
-                      <Card
-                        className={`hover:shadow-md transition-shadow cursor-pointer ${
-                          game.lisa ? 'border-2 border-yellow-300 bg-yellow-50/60' : ''
-                        }`}
-                      >
-                        <CardContent className="pt-6">
-                          <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2 flex-1 min-w-0">
-                                {winner === 'A' && (
-                                  <Trophy className="h-5 w-5 text-green-600 flex-shrink-0" />
-                                )}
-                                <span className={`text-sm font-medium truncate ${
-                                  winner === 'A' ? 'text-green-700' : 'text-gray-700'
-                                }`}>
-                                  {game.teamA.map(p => p.name).join(' & ')}
-                                </span>
-                              </div>
-                              <span className={`text-xl font-bold ml-4 ${
-                                winner === 'A' ? 'text-green-600' : 'text-gray-900'
-                              }`}>
-                                {game.scoreA}
-                              </span>
-                            </div>
-
-                            <div className="h-px bg-gray-200"></div>
-
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2 flex-1 min-w-0">
-                                {winner === 'B' && (
-                                  <Trophy className="h-5 w-5 text-green-600 flex-shrink-0" />
-                                )}
-                                <span className={`text-sm font-medium truncate ${
-                                  winner === 'B' ? 'text-green-700' : 'text-gray-700'
-                                }`}>
-                                  {game.teamB.map(p => p.name).join(' & ')}
-                                </span>
-                              </div>
-                              <span className={`text-xl font-bold ml-4 ${
-                                winner === 'B' ? 'text-green-600' : 'text-gray-900'
-                              }`}>
-                                {game.scoreB}
-                              </span>
-                            </div>
-
-                            {game.lisa && (
-                              <div className="mt-2">
-                                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-200 text-yellow-900 border border-yellow-300">
-                                  <Award className="h-3 w-3 mr-1" />
-                                  Lisa em destaque
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </a>
-                  </Link>
-                );
-              })}
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="py-8 text-center text-gray-500">
-                Nenhuma partida finalizada recente.
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        {/* Minhas Partidas */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900">Minhas Partidas</h2>
-            <span className="text-sm text-gray-600">{myGames.length} no total</span>
-          </div>
-
-          {myGamesLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-primary-600" />
-            </div>
-          ) : myGames.length === 0 ? (
-            <Card>
-              <CardContent className="py-8 text-center text-gray-500">
-                Você ainda não participou de nenhuma partida.
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4">
-              {myGames.map((game) => {
-                const winner = game.finished ? (game.winnerTeam ?? (game.scoreA >= 100 ? 'A' : 'B')) : null;
-
-                return (
-                  <Link key={`my-${game.id}`} href={`/games/${game.id}`} legacyBehavior>
-                    <a>
-                      <Card
-                        className={`hover:shadow-md transition-shadow cursor-pointer ${
-                          game.lisa ? 'border-2 border-yellow-300 bg-yellow-50/60' : ''
-                        }`}
-                      >
-                        <CardContent className="pt-6">
-                          <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                game.finished ? 'bg-gray-100 text-gray-800' : 'bg-green-100 text-green-800'
-                              }`}>
-                                {game.finished ? 'Finalizada' : 'Em Andamento'}
-                              </span>
-                              {game.lisa && (
-                                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-200 text-yellow-900 border border-yellow-300">
-                                  <Award className="h-3 w-3 mr-1" />
-                                  Lisa em destaque
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="flex items-center justify-between">
-                              <span className={`text-sm font-medium ${winner === 'A' ? 'text-green-700' : 'text-gray-700'}`}>
-                                {game.teamA.map(p => p.name).join(' & ')}
-                              </span>
-                              <span className={`text-xl font-bold ${winner === 'A' ? 'text-green-600' : 'text-gray-900'}`}>
-                                {game.scoreA}
-                              </span>
-                            </div>
-
-                            <div className="h-px bg-gray-200" />
-
-                            <div className="flex items-center justify-between">
-                              <span className={`text-sm font-medium ${winner === 'B' ? 'text-green-700' : 'text-gray-700'}`}>
-                                {game.teamB.map(p => p.name).join(' & ')}
-                              </span>
-                              <span className={`text-xl font-bold ${winner === 'B' ? 'text-green-600' : 'text-gray-900'}`}>
-                                {game.scoreB}
-                              </span>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </a>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-
       {isLoading && (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
         </div>
       )}
 
-      {!isLoading && games.length === 0 && (
+      {!isLoading && activeGames.length === 0 && (
         <Card>
           <CardContent className="py-12 text-center">
             <Trophy className="mx-auto h-12 w-12 text-gray-400 mb-4" />

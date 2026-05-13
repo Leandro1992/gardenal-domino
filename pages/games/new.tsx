@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Loader2, Users as UsersIcon, ArrowLeft, Search } from 'lucide-react';
 import Link from 'next/link';
+import { mutate } from 'swr';
+import { appDataKeys } from '@/lib/useAppData';
 
 interface User {
   id: string;
@@ -140,6 +142,16 @@ export default function NewGamePage() {
         }
         return;
       }
+
+      await Promise.all([
+        mutate(appDataKeys.dashboard(12)),
+        mutate(appDataKeys.gamesActive(100)),
+        mutate(appDataKeys.rankingGeneral),
+        mutate(appDataKeys.rankingLisa),
+        mutate(appDataKeys.panela),
+        // Invalidate search cache patterns
+        mutate((key) => typeof key === 'string' && key.includes('/api/games/search'), undefined, false),
+      ]);
 
       router.push(`/games/${data.game.id}`);
     } catch (err: any) {

@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { useAuth } from '@/lib/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Loader2, Trophy, Medal, Target, Flame, Frown, TrendingUp } from 'lucide-react';
+import { useRankingGeneral, useRankingLisa } from '@/lib/useAppData';
 
 interface PlayerStats {
   id: string;
@@ -18,40 +19,18 @@ interface PlayerStats {
 export default function RankingPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [ranking, setRanking] = useState<PlayerStats[]>([]);
-  const [lisaRanking, setLisaRanking] = useState<PlayerStats[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: generalData, isLoading: isGeneralLoading } = useRankingGeneral();
+  const { data: lisaData, isLoading: isLisaLoading } = useRankingLisa();
 
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
-    } else if (user) {
-      fetchRanking();
     }
   }, [user, loading, router]);
 
-  const fetchRanking = async () => {
-    try {
-      const [generalResponse, lisaResponse] = await Promise.all([
-        fetch('/api/stats/ranking'),
-        fetch('/api/stats/ranking?mode=lisa'),
-      ]);
-
-      if (generalResponse.ok) {
-        const data = await generalResponse.json();
-        setRanking(data.ranking || []);
-      }
-
-      if (lisaResponse.ok) {
-        const data = await lisaResponse.json();
-        setLisaRanking(data.ranking || []);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar ranking:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const ranking = (generalData?.ranking || []) as PlayerStats[];
+  const lisaRanking = (lisaData?.ranking || []) as PlayerStats[];
+  const isLoading = isGeneralLoading || isLisaLoading;
 
   if (loading || !user) {
     return (
