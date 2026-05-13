@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import FirebaseConnection from '../../../lib/firebaseAdmin';
+import { clearCacheByPrefix } from "../../../lib/serverCache";
 
 const db = FirebaseConnection.getInstance().db;
 import { getCurrentUser } from "../../../lib/auth";
@@ -66,6 +67,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!doc.exists) return res.status(404).json({ error: "Partida não encontrada" });
 
     await db.collection("games").doc(id).delete();
+
+    clearCacheByPrefix("games:list:");
+    clearCacheByPrefix("stats:");
+
     return res.json({ message: "Partida cancelada com sucesso" });
   }
 

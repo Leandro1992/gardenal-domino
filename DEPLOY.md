@@ -1,299 +1,68 @@
-# Deploy no Heroku - Dominó Gardenal
+# Deploy - Heroku
 
-## Pré-requisitos
+## Pre-requisitos
+- Conta Heroku
+- Heroku CLI instalado
+- Projeto com remote git configurado
 
-1. Conta no Heroku: https://signup.heroku.com
-2. Heroku CLI instalado: https://devcenter.heroku.com/articles/heroku-cli
-3. Git configurado no projeto
-
-## Passo a Passo
-
-### 1. Login no Heroku
-
+## 1) Login
 ```bash
 heroku login
 ```
 
-### 2. Criar Aplicação no Heroku
-
+## 2) Criar app
 ```bash
 heroku create gardenal-domino
-# ou deixe o Heroku gerar um nome:
-# heroku create
 ```
 
-### 3. Configurar Variáveis de Ambiente
-
+## 3) Configurar variaveis
 ```bash
 heroku config:set FIREBASE_PROJECT_ID=seu-project-id
 heroku config:set FIREBASE_CLIENT_EMAIL=seu-client-email
-heroku config:set FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nSUA_CHAVE_AQUI\n-----END PRIVATE KEY-----"
-heroku config:set JWT_SECRET=seu-jwt-secret-seguro-aleatorio
+heroku config:set FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nSUA_CHAVE\n-----END PRIVATE KEY-----"
+heroku config:set JWT_SECRET=seu-segredo
 heroku config:set DEFAULT_ADMIN_EMAIL=admin@gardenal.com
-heroku config:set DEFAULT_ADMIN_PASSWORD=senha-segura-inicial
+heroku config:set DEFAULT_ADMIN_PASSWORD=senha-inicial
 heroku config:set NODE_ENV=production
 ```
 
-**IMPORTANTE sobre FIREBASE_PRIVATE_KEY:**
-- A chave deve ter os `\n` literais para quebras de linha
-- Use aspas duplas ao redor da chave completa
-- No dashboard do Heroku, cole a chave exatamente como está no arquivo JSON do Firebase
-
-Exemplo:
-```
------BEGIN PRIVATE KEY-----
-MIIEvQIBADANBgkqhkiG9w0BAQEF...
-...sua chave aqui...
------END PRIVATE KEY-----
-```
-
-### 4. Adicionar Buildpack do Node.js (Automático)
-
-O Heroku detecta automaticamente Node.js, mas você pode forçar:
-
+## 4) Deploy
 ```bash
-heroku buildpacks:set heroku/nodejs
-```
-
-### 5. Deploy da Aplicação
-
-```bash
-git add .
-git commit -m "Preparar para deploy no Heroku"
 git push heroku main
-# ou se sua branch principal é master:
-# git push heroku master
 ```
 
-### 6. Executar Seed do Admin (Primeira vez)
-
+## 5) Seed do admin (primeiro deploy)
 ```bash
 heroku run npm run seed-admin
 ```
 
-### 7. Abrir Aplicação
-
-```bash
-heroku open
-```
-
-## Configuração do Firestore
-
-Certifique-se de que:
-
-1. **Firebase Admin SDK** está configurado corretamente
-2. **Service Account** foi criado no Firebase Console:
-   - Firebase Console > Project Settings > Service Accounts
-   - Generate New Private Key
-   - Baixe o arquivo JSON
-
-3. **Firestore Database** está habilitado:
-   - Firebase Console > Firestore Database
-   - Create Database
-   - Start in production mode (ou test mode inicialmente)
-
-## Verificar Logs
-
-```bash
-# Ver logs em tempo real
-heroku logs --tail
-
-# Ver últimos logs
-heroku logs --num 200
-```
-
-## Comandos Úteis
-
-```bash
-# Ver status da aplicação
-heroku ps
-
-# Reiniciar aplicação
-heroku restart
-
-# Ver variáveis de ambiente
-heroku config
-
-# Editar variável específica
-heroku config:set VARIAVEL=valor
-
-# Acessar console do Node.js
-heroku run node
-
-# Executar comando específico
-heroku run npm run seed-admin
-
-# Escalar dynos (se necessário)
-heroku ps:scale web=1
-```
-
-## Estrutura de Arquivos Importante
-
-```
-gardenal-domino/
-├── Procfile                    # Define comando de start
-├── package.json                # Scripts e dependências
-├── next.config.js              # Configuração do Next.js
-├── .gitignore                  # Arquivos ignorados no Git
-└── scripts/
-    └── seed-admin.ts           # Script de seed do admin
-```
-
-## Procfile
-
-Já está configurado:
-```
-web: npm start
-```
-
-## Package.json - Scripts
-
-Já estão configurados:
+## Scripts relevantes do projeto
 ```json
 {
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start -p ${PORT:-3000}",
-    "seed-admin": "ts-node scripts/seed-admin.ts",
-    "heroku-postbuild": "npm run build"
-  }
+  "dev": "next dev",
+  "build": "next build",
+  "start": "next start -p ${PORT:-3000}",
+  "seed-admin": "ts-node --compiler-options {\"module\":\"commonjs\"} scripts/seed-admin.ts",
+  "heroku-postbuild": "npm run build"
 }
 ```
 
-- `heroku-postbuild`: Executa automaticamente após install
-- `start`: Usa porta do Heroku ($PORT) ou 3000 local
+## Observacoes importantes
+- FIREBASE_PRIVATE_KEY deve manter \n literais para conversao no servidor.
+- next.config.js usa imagem sem otimizacao para compatibilidade de deploy.
+- Aplicacao depende de Firestore acessivel e credenciais validas.
 
-## Troubleshooting
+## Verificacao pos-deploy
+1. Login com admin seedado.
+2. Criar usuario teste.
+3. Criar partida com 4 jogadores.
+4. Registrar rodadas e finalizar manualmente.
+5. Validar dashboard, ranking e painel de panela.
 
-### Erro de Build
-
+## Comandos uteis
 ```bash
-# Limpar cache do Heroku
-heroku plugins:install heroku-builds
-heroku builds:cache:purge
-
-# Fazer rebuild
-git commit --allow-empty -m "Rebuild"
-git push heroku main
-```
-
-### Erro de Memória
-
-```bash
-# Aumentar memória do Node.js
-heroku config:set NODE_OPTIONS="--max-old-space-size=4096"
-```
-
-### Firestore Connection Error
-
-- Verifique se FIREBASE_PRIVATE_KEY está correta
-- Confirme que as quebras de linha `\n` estão presentes
-- Teste localmente primeiro com as mesmas variáveis
-
-### Application Error (H10)
-
-```bash
-# Ver logs detalhados
 heroku logs --tail
-
-# Verificar se build foi concluído
-heroku releases
-
-# Verificar se dyno está rodando
 heroku ps
+heroku restart
+heroku config
 ```
-
-## Monitoramento
-
-### Métricas do Heroku
-
-```bash
-# Abrir dashboard de métricas
-heroku open --metrics
-```
-
-### Adicionar Logging (Opcional)
-
-```bash
-# Papertrail (logs persistentes)
-heroku addons:create papertrail:choklad
-heroku addons:open papertrail
-```
-
-## Domínio Customizado (Opcional)
-
-```bash
-# Adicionar domínio
-heroku domains:add www.dominogardenal.com
-
-# Ver domínios configurados
-heroku domains
-
-# Configurar DNS no provedor do domínio
-# Criar CNAME apontando para: 
-# [seu-app].herokudns.com
-```
-
-## SSL/HTTPS
-
-O Heroku fornece SSL automático para:
-- Domínio herokuapp.com (automático)
-- Domínios customizados (Automated Certificate Management)
-
-Nenhuma configuração adicional necessária!
-
-## Backup e Restore
-
-### Backup do Firestore
-
-Use Firebase Console ou Firebase CLI:
-```bash
-# Instalar Firebase CLI
-npm install -g firebase-tools
-
-# Login
-firebase login
-
-# Export Firestore
-firebase firestore:export gs://[BUCKET_NAME]/backup
-```
-
-## Custos
-
-- **Dyno Gratuito**: Dorme após 30min de inatividade
-- **Hobby Dyno** ($7/mês): Sempre ativo, SSL customizado
-- **Professional Dyno** ($25-$500/mês): Recursos avançados
-
-Para produção, recomenda-se **Hobby** ou superior.
-
-## Próximos Passos Após Deploy
-
-1. ✅ Testar login com admin padrão
-2. ✅ Criar usuários de teste
-3. ✅ Testar criação de partidas, adição de rodadas e finalização manual
-4. ✅ Validar regra: time que chega primeiro a 100+ pontos vence
-5. ✅ Verificar estatísticas e ranking
-6. ✅ Testar em mobile (PWA no futuro)
-7. ✅ Configurar domínio customizado (opcional)
-8. ✅ Monitorar logs e performance
-
-## Atualizar Aplicação
-
-Sempre que fizer mudanças:
-
-```bash
-git add .
-git commit -m "Descrição das mudanças"
-git push heroku main
-```
-
-O Heroku automaticamente:
-1. Detecta mudanças
-2. Executa `npm install`
-3. Executa `npm run heroku-postbuild` (build)
-4. Reinicia a aplicação
-
----
-
-**🚀 Aplicação pronta para deploy no Heroku!**
