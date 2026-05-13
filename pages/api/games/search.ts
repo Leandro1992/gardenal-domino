@@ -79,12 +79,21 @@ export default async function handler(
       // Para performance, buscar player em teamA e teamB separadamente, então combinar
     }
 
-    // Buscar games (um pouco mais que limit para ter o cursor next)
-    let snapshot = await baseQuery.limit(limit + 1).get();
+    // Aplicar cursor (quando informado) para paginacao real.
+    let query = baseQuery;
+    if (typeof cursor === 'string' && cursor.trim()) {
+      const cursorDoc = await db.collection('games').doc(cursor).get();
+      if (cursorDoc.exists) {
+        query = query.startAfter(cursorDoc);
+      }
+    }
+
+    // Buscar games (um pouco mais que o limite para detectar proxima pagina)
+    const snapshot = await query.limit(limit + 1).get();
     const games: GameData[] = [];
     let nextCursor: string | null = null;
 
-    // Se temos mais docs que o limit, o último não é incluído (será usado como cursor)
+    // Se temos mais docs que o limite, o ultimo nao e incluido na pagina atual.
     const hasMore = snapshot.docs.length > limit;
     const docsToProcess = hasMore ? snapshot.docs.slice(0, limit) : snapshot.docs;
 
@@ -142,9 +151,9 @@ export default async function handler(
       });
     });
 
-    // Gerar next cursor
+    // Gerar next cursor para a proxima pagina com base no ultimo doc da pagina atual.
     if (hasMore && snapshot.docs.length > limit) {
-      const lastDoc = snapshot.docs[limit];
+      const lastDoc = docsToProcess[docsToProcess.length - 1];
       nextCursor = lastDoc.id;
     }
 
