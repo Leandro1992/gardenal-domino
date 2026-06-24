@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { useAuth } from '@/lib/useAuth';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Select } from '@/components/ui/Select';
 import { Loader2, Users as UsersIcon, ArrowLeft, Search } from 'lucide-react';
 import Link from 'next/link';
 import { mutate } from 'swr';
@@ -22,10 +23,13 @@ export default function NewGamePage() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [gameMode, setGameMode] = useState<'free' | 'championship'>('championship');
+  const [activeCycleChecked, setActiveCycleChecked] = useState(false);
   
   const [teamA, setTeamA] = useState<string[]>([]);
   const [teamB, setTeamB] = useState<string[]>([]);
-  const [playersInActiveGames, setPlayersInActiveGames] = useState<Set<string>>(new Set());
+  const [playersInActiveFreeGames, setPlayersInActiveFreeGames] = useState<Set<string>>(new Set());
+  const [playersInActiveChampionshipGames, setPlayersInActiveChampionshipGames] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!loading && !user) {
@@ -38,9 +42,10 @@ export default function NewGamePage() {
   const fetchUsers = async () => {
     try {
       // Buscar usuários e partidas ativas em paralelo
-      const [usersResponse, gamesResponse] = await Promise.all([
+      const [usersResponse, gamesResponse, championshipResponse] = await Promise.all([
         fetch('/api/users'),
-        fetch('/api/games')
+        fetch('/api/games'),
+        fetch('/api/championship-games')
       ]);
       
       if (usersResponse.ok) {
@@ -76,7 +81,42 @@ export default function NewGamePage() {
           });
         });
         
-        setPlayersInActiveGames(busyPlayers);
+        setPlayersInActiveFreeGames(busyPlayers);
+      }
+
+      // Identificar jogadores em partidas ativas no modo campeonato
+      if (championshipResponse.ok) {
+        const championshipData = await championshipResponse.json();
+
+        // Definir modo padrão: campeonato se houver ciclo aberto
+        if (!activeCycleChecked) {
+          if (championshipData.cycle?.status === 'open') {
+            setGameMode('championship');
+          }
+          setActiveCycleChecked(true);
+        }
+
+        const activeGames = (championshipData.games || []).filter((g: any) => !g.finished);
+        const busyPlayers = new Set<string>();
+
+        activeGames.forEach((game: any) => {
+          (game.teamA || []).forEach((player: any) => {
+            if (typeof player === 'string') {
+              busyPlayers.add(player);
+            } else if (player?.id) {
+              busyPlayers.add(player.id);
+            }
+          });
+          (game.teamB || []).forEach((player: any) => {
+            if (typeof player === 'string') {
+              busyPlayers.add(player);
+            } else if (player?.id) {
+              busyPlayers.add(player.id);
+            }
+          });
+        });
+
+        setPlayersInActiveChampionshipGames(busyPlayers);
       }
     } catch (error) {
       console.error('Erro ao carregar usuários:', error);
@@ -115,10 +155,11 @@ export default function NewGamePage() {
 
     setCreating(true);
     try {
-      const response = await fetch('/api/games', {
+      const endpoint = gameMode === 'championship' ? '/api/championship-games' : '/api/games';
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ teamA, teamB }),
+        body: JSON.stringify({ teamA, teamB, mode: gameMode }),
       });
 
       const data = await response.json();
@@ -153,7 +194,7 @@ export default function NewGamePage() {
         mutate((key) => typeof key === 'string' && key.includes('/api/games/search'), undefined, false),
       ]);
 
-      router.push(`/games/${data.game.id}`);
+      router.push(`/games/${data.game.id}${gameMode === 'championship' ? '?mode=championship' : ''}`);
     } catch (err: any) {
       console.error('Erro ao criar partida:', err);
       setError('Erro de conexão. Verifique sua internet e tente novamente.');
@@ -171,6 +212,10 @@ export default function NewGamePage() {
   }
 
   const canCreate = teamA.length === 2 && teamB.length === 2;
+  const playersInActiveGames =
+    gameMode === 'championship'
+      ? playersInActiveChampionshipGames
+      : playersInActiveFreeGames;
   
   // Filtrar usuários pela busca
   const filteredUsers = users.filter(u => 
@@ -201,6 +246,33 @@ export default function NewGamePage() {
           <p className="text-sm text-red-800">{error}</p>
         </div>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Modo da Partida</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Select
+            label="Selecione a categoria da partida"
+            value={gameMode}
+            onChange={(value) => setGameMode(value as 'free' | 'championship')}
+            options={[
+              { id: 'free', name: 'Modo Livre' },
+              { id: 'championship', name: 'Modo Campeonato' },
+            ]}
+          />
+          <div className={`rounded-lg p-3 text-sm ${
+            gameMode === 'championship'
+              ? 'bg-blue-50 text-blue-800 border border-blue-200'
+              : 'bg-gray-50 text-gray-700 border border-gray-200'
+          }`}>
+            <strong>{gameMode === 'championship' ? 'Campeonato' : 'Livre'}:</strong>{' '}
+            {gameMode === 'championship'
+              ? 'aplica regras de ciclo mensal, rotação de parceiros e ranking mensal/anual.'
+              : 'partida tradicional do modo livre com ranking geral atual.'}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Team A */}
       <Card>
@@ -330,7 +402,7 @@ export default function NewGamePage() {
                       </span>
                       {isInActiveGame && (
                         <span className="text-xs text-gray-500 mt-0.5">
-                          🎮 Em partida ativa
+                           🎮 Em partida ativa neste modo
                         </span>
                       )}
                     </div>
@@ -375,9 +447,9 @@ export default function NewGamePage() {
           ) : (
             <>
               <UsersIcon className="mr-2 h-5 w-5" />
-              Criar Partida
-            </>
-          )}
+               Criar Partida ({gameMode === 'championship' ? 'Campeonato' : 'Livre'})
+             </>
+           )}
         </Button>
         <Link href="/">
           <Button fullWidth size="lg" variant="secondary">

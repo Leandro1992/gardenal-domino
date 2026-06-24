@@ -10,6 +10,7 @@ export const appDataKeys = {
 
 interface DashboardGame {
   id: string;
+  mode?: 'free' | 'championship';
   teamA: { id: string; name: string }[];
   teamB: { id: string; name: string }[];
   scoreA: number;

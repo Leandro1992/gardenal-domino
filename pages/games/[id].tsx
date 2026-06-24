@@ -25,6 +25,7 @@ interface Round {
 
 interface Game {
   id: string;
+  mode?: 'free' | 'championship';
   teamA: Player[];
   teamB: Player[];
   scoreA: number;
@@ -38,7 +39,7 @@ interface Game {
 export default function GameDetailPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const { id } = router.query;
+  const { id, mode } = router.query;
   const [game, setGame] = useState<Game | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showAddRound, setShowAddRound] = useState(false);
@@ -74,19 +75,34 @@ export default function GameDetailPage() {
 
   const fetchGame = async () => {
     try {
-      const response = await fetch(`/api/games/${id}`);
-      if (response.ok) {
+      const preferredChampionship = mode === 'championship';
+      const endpoints = preferredChampionship
+        ? [`/api/championship-games?id=${id}`, `/api/games/${id}`]
+        : [`/api/games/${id}`, `/api/championship-games?id=${id}`];
+
+      for (const endpoint of endpoints) {
+        const response = await fetch(endpoint);
+        if (!response.ok) continue;
+
         const data = await response.json();
-        console.log('Game data received:', data);
-        setGame(data); // A API retorna o objeto diretamente, não encapsulado em 'game'
-        
-        // Fetch rounds
-        const roundsResponse = await fetch(`/api/games/${id}/rounds`);
-        if (roundsResponse.ok) {
-          const roundsData = await roundsResponse.json();
-          console.log('Rounds data received:', roundsData);
-          setGame(prev => prev ? { ...prev, rounds: roundsData.rounds || [] } : null);
+        const isChampionship = endpoint.includes('/api/championship-games');
+        const loadedGame = {
+          ...data,
+          mode: isChampionship ? 'championship' : (data.mode || 'free'),
+          rounds: data.rounds || [],
+        } as Game;
+
+        setGame(loadedGame);
+
+        // Para modo livre, buscar rounds no endpoint dedicado
+        if (!isChampionship) {
+          const roundsResponse = await fetch(`/api/games/${id}/rounds`);
+          if (roundsResponse.ok) {
+            const roundsData = await roundsResponse.json();
+            setGame(prev => prev ? { ...prev, rounds: roundsData.rounds || [] } : null);
+          }
         }
+        return;
       }
     } catch (error) {
       console.error('Erro ao carregar partida:', error);
@@ -121,7 +137,11 @@ export default function GameDetailPage() {
 
     setAdding(true);
     try {
-      const response = await fetch(`/api/games/${id}/rounds`, {
+      const roundsEndpoint = game?.mode === 'championship'
+        ? `/api/championship-games?id=${id}&action=rounds`
+        : `/api/games/${id}/rounds`;
+
+      const response = await fetch(roundsEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ teamA_points, teamB_points }),
@@ -159,7 +179,11 @@ export default function GameDetailPage() {
 
     setDeleting(true);
     try {
-      const response = await fetch(`/api/games/${id}`, {
+      const response = await fetch(
+        game?.mode === 'championship'
+          ? `/api/championship-games?id=${id}`
+          : `/api/games/${id}`,
+        {
         method: 'DELETE',
       });
 
@@ -184,7 +208,11 @@ export default function GameDetailPage() {
 
     setDeletingRound(roundNumber);
     try {
-      const response = await fetch(`/api/games/${id}/rounds/${roundNumber}`, {
+      const response = await fetch(
+        game?.mode === 'championship'
+          ? `/api/championship-games?id=${id}&roundNumber=${roundNumber}`
+          : `/api/games/${id}/rounds/${roundNumber}`,
+        {
         method: 'DELETE',
       });
 
@@ -206,7 +234,11 @@ export default function GameDetailPage() {
     setError('');
     
     try {
-      const response = await fetch(`/api/games/${id}/finish`, {
+      const response = await fetch(
+        game?.mode === 'championship'
+          ? `/api/championship-games?id=${id}&action=finish`
+          : `/api/games/${id}/finish`,
+        {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -301,9 +333,18 @@ export default function GameDetailPage() {
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
             {game.finished ? 'Partida Finalizada' : 'Partida em Andamento'}
           </h1>
-          <p className="text-gray-600 mt-1">
-            {game.createdAt?.seconds ? new Date(game.createdAt.seconds * 1000).toLocaleDateString('pt-BR') : 'Data não disponível'}
-          </p>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-gray-600">
+              {game.createdAt?.seconds ? new Date(game.createdAt.seconds * 1000).toLocaleDateString('pt-BR') : 'Data não disponível'}
+            </p>
+            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+              game.mode === 'championship'
+                ? 'bg-blue-100 text-blue-800'
+                : 'bg-slate-100 text-slate-700'
+            }`}>
+              {game.mode === 'championship' ? 'Campeonato' : 'Livre'}
+            </span>
+          </div>
         </div>
       </div>
 

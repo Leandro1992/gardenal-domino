@@ -121,6 +121,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const game = {
       createdBy: current.id,
       createdAt: admin.firestore.Timestamp.now(),
+      mode: "free",
       teamA,
       teamB,
       participants: unique,
@@ -299,7 +300,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         finished: data.finished || false,
         lisa: data.lisa || false,
         winnerTeam: data.winnerTeam || null,
-        finishedAt: data.finishedAt ? { seconds: data.finishedAt.seconds, nanoseconds: data.finishedAt.nanoseconds } : null
+        finishedAt: data.finishedAt ? { seconds: data.finishedAt.seconds, nanoseconds: data.finishedAt.nanoseconds } : null,
+        mode: data.mode || "free",
       };
     });
 
