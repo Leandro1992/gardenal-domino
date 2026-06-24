@@ -11,6 +11,7 @@ import { exportToExcel } from '@/lib/exportToExcel';
 
 interface Game {
   id: string;
+  mode?: 'free' | 'championship';
   teamA: { id: string; name: string }[];
   teamB: { id: string; name: string }[];
   scoreA: number;
@@ -300,6 +301,13 @@ export default function GamesPage() {
                               Lisa
                             </span>
                           )}
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            (game.mode || 'free') === 'championship'
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-slate-100 text-slate-700'
+                          }`}>
+                            {(game.mode || 'free') === 'championship' ? 'Campeonato' : 'Livre'}
+                          </span>
                         </div>
                         <span className="text-sm text-gray-500">
                           {formatGameDate(game.createdAt)}

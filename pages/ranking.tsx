@@ -78,7 +78,7 @@ const MEDAL_LABELS: Record<string, string> = {
 export default function RankingPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<Tab>('general');
+  const [activeTab, setActiveTab] = useState<Tab>('monthly');
 
   // General ranking
   const { data: generalData, isLoading: isGeneralLoading } = useRankingGeneral();
@@ -155,9 +155,9 @@ export default function RankingPage() {
   };
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'general', label: 'Geral (Modo Livre)' },
     { id: 'monthly', label: 'Mensal (Campeonato)' },
     { id: 'annual', label: 'Anual (Campeonato)' },
+    { id: 'general', label: 'Geral (Modo Livre)' },
   ];
 
   return (

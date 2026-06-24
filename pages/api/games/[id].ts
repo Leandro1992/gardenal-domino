@@ -50,6 +50,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       teamB_total: gameData.teamB_total || 0,
       scoreA: gameData.teamA_total || 0,
       scoreB: gameData.teamB_total || 0,
+      mode: gameData.mode || "free",
       finished: gameData.finished || false,
       lisa: gameData.lisa || false,
       winnerTeam: gameData.winnerTeam || null,

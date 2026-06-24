@@ -3,7 +3,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/lib/useAuth';
-import { Home, Users, Trophy, LogOut, Menu, X, Settings, Award, CalendarDays, SlidersHorizontal } from 'lucide-react';
+import { Home, Users, Trophy, LogOut, Menu, X, Settings, Award, CalendarDays, SlidersHorizontal, BookOpenText, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface LayoutProps {
@@ -30,12 +30,14 @@ export default function Layout({ children }: LayoutProps) {
     { name: 'Ranking', href: '/ranking', icon: Award },
     { name: 'Panela', href: '/panela', icon: Users },
     ...(user.role === 'admin'
-      ? [
-          { name: 'Usuários', href: '/admin/users', icon: Users },
-          { name: 'Ciclos', href: '/admin/cycles', icon: CalendarDays },
-          { name: 'Parâmetros', href: '/admin/params', icon: SlidersHorizontal },
-        ]
-      : []),
+        ? [
+            { name: 'Usuários', href: '/admin/users', icon: Users },
+            { name: 'Ciclos', href: '/admin/cycles', icon: CalendarDays },
+            { name: 'Parâmetros', href: '/admin/params', icon: SlidersHorizontal },
+            { name: 'Limpeza', href: '/admin/games-cleanup', icon: Trash2 },
+            { name: 'Manual', href: '/admin/manual', icon: BookOpenText },
+          ]
+        : []),
   ];
 
   return (

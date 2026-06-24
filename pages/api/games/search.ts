@@ -7,6 +7,7 @@ const db = FirebaseConnection.getInstance().db;
 
 interface GameData {
   id: string;
+  mode?: 'free' | 'championship';
   teamA: { id: string; name: string }[];
   teamB: { id: string; name: string }[];
   scoreA: number;
@@ -140,6 +141,7 @@ export default async function handler(
 
       games.push({
         id: gameId,
+        mode: data.mode || 'free',
         teamA,
         teamB,
         scoreA: data.teamA_total || 0,

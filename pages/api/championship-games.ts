@@ -41,6 +41,7 @@ async function getUsersMap(userIds: string[]) {
 function serializeGame(docId: string, data: any, usersMap: Map<string, { id: string; name: string }>) {
   return {
     id: docId,
+    mode: "championship",
     createdBy: data.createdBy,
     createdAt: data.createdAt ? { seconds: data.createdAt.seconds, nanoseconds: data.createdAt.nanoseconds } : null,
     dayWindow: data.dayWindow,
@@ -51,9 +52,14 @@ function serializeGame(docId: string, data: any, usersMap: Map<string, { id: str
     rounds: data.rounds || [],
     teamA_total: data.teamA_total || 0,
     teamB_total: data.teamB_total || 0,
+    // Compatibilidade com frontend: `scoreA`/`scoreB` usados na UI
+    scoreA: data.teamA_total || 0,
+    scoreB: data.teamB_total || 0,
     finished: data.finished || false,
     winnerTeam: data.winnerTeam || null,
-    lisa: data.lisa || [],
+    // Expor `lisa` como booleano para compatibilidade com frontend (que espera boolean)
+    lisa: Array.isArray(data.lisa) ? (data.lisa.length > 0) : Boolean(data.lisa),
+    lisaPlayers: data.lisa || [],
     finishedAt: data.finishedAt ? { seconds: data.finishedAt.seconds, nanoseconds: data.finishedAt.nanoseconds } : null,
   };
 }
@@ -230,6 +236,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(201).json({
       game: {
         id: ref.id,
+        mode: "championship",
         ...game,
         teamA: teamA.map((uid: string) => usersMap.get(uid)),
         teamB: teamB.map((uid: string) => usersMap.get(uid)),
@@ -246,6 +253,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const allIds = [...(data.teamA || []), ...(data.teamB || [])];
     const usersMap = await getUsersMap(allIds);
     return res.json(serializeGame(doc.id, data, usersMap));
+  }
+
+  // ── DELETE com id ── cancelar partida (apenas admin) ─────────────────────
+  if (req.method === "DELETE" && typeof id === "string" && !roundNumber) {
+    if (current.role !== "admin") {
+      return res.status(403).json({ error: "Apenas administradores podem cancelar partidas" });
+    }
+
+    const ref = db.collection("championship_games").doc(id);
+    const snap = await ref.get();
+    if (!snap.exists) return res.status(404).json({ error: "Partida não encontrada" });
+
+    await ref.delete();
+    clearCacheByPrefix("championship:games:list:");
+    clearCacheByPrefix("championship:ranking:");
+    return res.json({ ok: true, message: "Partida de campeonato cancelada com sucesso" });
   }
 
   // ── POST com id + action=rounds ── adicionar rodada ──────────────────────
@@ -286,7 +309,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       clearCacheByPrefix("championship:games:list:");
       const snap = await gameRef.get();
-      return res.json({ ok: true, game: { id: snap.id, ...snap.data() } });
+      const data: any = snap.data();
+      const allIds = [...(data.teamA || []), ...(data.teamB || [])];
+      const usersMap = await getUsersMap(allIds);
+      const serialized = serializeGame(snap.id, data, usersMap);
+      return res.json({ ok: true, game: serialized });
     } catch (err: any) {
       return res.status(400).json({ error: err.message || "Erro ao adicionar rodada" });
     }
@@ -343,21 +370,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const game: any = snap.data();
         if (game.finished) throw new Error("Partida já finalizada");
 
-        const tA = game.teamA_total || 0;
-        const tB = game.teamB_total || 0;
+        const tA = Number(game.teamA_total || 0);
+        const tB = Number(game.teamB_total || 0);
 
         if (tA < 100 && tB < 100) throw new Error("Nenhum time atingiu 100 pontos ainda");
 
         let winnerTeam: "A" | "B";
         if (tA >= 100 && tB >= 100) {
-          winnerTeam = tA > tB ? "A" : "B";
+          if (tA !== tB) {
+            winnerTeam = tA > tB ? "A" : "B";
+          } else {
+            // Desempate por ultima rodada: quem marcou mais na última rodada vence
+            const lastRound = (game.rounds || []).slice(-1)[0];
+            if (lastRound) {
+              winnerTeam = (lastRound.teamA_points || 0) > (lastRound.teamB_points || 0) ? "A" : "B";
+            } else {
+              winnerTeam = "A"; // fallback deterministico
+            }
+          }
         } else {
           winnerTeam = tA >= 100 ? "A" : "B";
         }
 
         const lisaPlayers: string[] = [];
-        if (winnerTeam === "A" && tB === 0) lisaPlayers.push(...game.teamA);
-        else if (winnerTeam === "B" && tA === 0) lisaPlayers.push(...game.teamB);
+        if (winnerTeam === "A" && tB === 0) lisaPlayers.push(...(game.teamA || []));
+        else if (winnerTeam === "B" && tA === 0) lisaPlayers.push(...(game.teamB || []));
 
         const update: any = {
           finished: true,
@@ -373,7 +410,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       clearCacheByPrefix("championship:games:list:");
       clearCacheByPrefix("championship:ranking:");
-      return res.json({ ok: true, ...result });
+
+      // Normalizar retorno: `lisa` como booleano e `lisaPlayers` com lista real
+      const isLisa = Array.isArray(result.lisa) ? result.lisa.length > 0 : Boolean(result.lisa);
+      return res.json({ ok: true, winnerTeam: result.winnerTeam, lisa: isLisa, lisaPlayers: result.lisa || [] });
     } catch (err: any) {
       return res.status(400).json({ error: err.message || "Erro ao finalizar partida" });
     }

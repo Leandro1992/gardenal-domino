@@ -39,13 +39,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   // ── GET ?action=cycles ── listar ciclos ──────────────────────────────────
   if (req.method === "GET" && action === "cycles") {
-    const snap = await db
-      .collection("championship_cycles")
-      .orderBy("year", "desc")
-      .orderBy("month", "desc")
-      .get();
+    let snap: any;
+    try {
+      snap = await db
+        .collection("championship_cycles")
+        .orderBy("year", "desc")
+        .orderBy("month", "desc")
+        .get();
+    } catch {
+      // Fallback sem ordenação enquanto o índice composto não é criado no Firestore
+      snap = await db.collection("championship_cycles").get();
+      snap = {
+        docs: snap.docs.sort((a: any, b: any) => {
+          const ad = a.data(); const bd = b.data();
+          if (bd.year !== ad.year) return bd.year - ad.year;
+          return bd.month - ad.month;
+        }),
+      };
+    }
 
-    const cycles = snap.docs.map((doc) => serializeCycle(doc.id, doc.data()));
+    const cycles = snap.docs.map((doc: any) => serializeCycle(doc.id, doc.data()));
     return res.json({ cycles });
   }
 
