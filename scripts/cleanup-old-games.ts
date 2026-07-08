@@ -5,7 +5,7 @@ const db = FirebaseConnection.getInstance().db;
 
 async function main() {
   const cutoffArg = process.env.CUTOFF_DATE || process.argv[2] || "2026-06-30";
-  const confirm = true;
+  const confirm = process.env.CONFIRM === "1" || process.argv.includes("--confirm") || process.argv.includes("-y");
 
   const cutoffDate = new Date(cutoffArg);
   if (isNaN(cutoffDate.getTime())) {
@@ -34,9 +34,7 @@ async function main() {
 
   if (!confirm) {
     console.log("Dry-run mode. To actually delete, re-run with `--confirm` or set `CONFIRM=1`.");
-    for (const id of ids) {
-      console.log(" -", id);
-    }
+    Array.from(ids).forEach((id) => console.log(' -', id));
     process.exit(0);
   }
 
