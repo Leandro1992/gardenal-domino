@@ -60,10 +60,20 @@ export default async function handler(
     const limit = Math.min(parseInt(pageSize as string) || 20, 100);
     const shouldIncludeFinished = includeFinished !== 'false';
 
-    // Base query: ordem por data (mais recente primeiro)
-    let baseQuery: any = db.collection('games').orderBy('createdAt', 'desc');
+    // Interpret cursor as ISO timestamp (createdAt) for merged pagination across collections
+    let cursorTimestamp: admin.firestore.Timestamp | null = null;
+    if (typeof cursor === 'string' && cursor.trim()) {
+      const parsed = new Date(cursor as string);
+      if (!isNaN(parsed.getTime())) {
+        cursorTimestamp = admin.firestore.Timestamp.fromDate(parsed);
+      }
+    }
 
-    // Aplicar filtros de data se fornecidos
+    // Prepare queries for both collections
+    let gamesQuery = db.collection('games').orderBy('createdAt', 'desc') as any;
+    let champQuery = db.collection('championship_games').orderBy('createdAt', 'desc') as any;
+
+    // Apply date range filters if provided
     if (startDate && endDate) {
       const start = new Date(startDate as string);
       const end = new Date(endDate as string);
@@ -72,92 +82,103 @@ export default async function handler(
       const startTimestamp = admin.firestore.Timestamp.fromDate(start);
       const endTimestamp = admin.firestore.Timestamp.fromDate(end);
 
-      baseQuery = baseQuery
-        .where('createdAt', '>=', startTimestamp)
-        .where('createdAt', '<=', endTimestamp);
-    } else if (playerId) {
-      // Se apenas playerId, aplicar sem range de data
-      // Para performance, buscar player em teamA e teamB separadamente, então combinar
+      gamesQuery = gamesQuery.where('createdAt', '>=', startTimestamp).where('createdAt', '<=', endTimestamp);
+      champQuery = champQuery.where('createdAt', '>=', startTimestamp).where('createdAt', '<=', endTimestamp);
     }
 
-    // Aplicar cursor (quando informado) para paginacao real.
-    let query = baseQuery;
-    if (typeof cursor === 'string' && cursor.trim()) {
-      const cursorDoc = await db.collection('games').doc(cursor).get();
-      if (cursorDoc.exists) {
-        query = query.startAfter(cursorDoc);
-      }
+    // Apply cursor (createdAt < cursor) to both queries when provided
+    if (cursorTimestamp) {
+      gamesQuery = gamesQuery.where('createdAt', '<', cursorTimestamp);
+      champQuery = champQuery.where('createdAt', '<', cursorTimestamp);
     }
 
-    // Buscar games (um pouco mais que o limite para detectar proxima pagina)
-    const snapshot = await query.limit(limit + 1).get();
-    const games: GameData[] = [];
-    let nextCursor: string | null = null;
+    // Fetch snapshots (limit+1 from each collection to detect more results after merge)
+    const [gamesSnap, champSnap] = await Promise.all([
+      gamesQuery.limit(limit + 1).get(),
+      champQuery.limit(limit + 1).get(),
+    ]);
 
-    // Se temos mais docs que o limite, o ultimo nao e incluido na pagina atual.
-    const hasMore = snapshot.docs.length > limit;
-    const docsToProcess = hasMore ? snapshot.docs.slice(0, limit) : snapshot.docs;
-
-    // Buscar user data e processar games
+    const combined: { id: string; data: any; source: 'games' | 'championship' }[] = [];
     const userIds = new Set<string>();
-    const gamesByPlayerId = new Map<string, any>();
 
-    docsToProcess.forEach((doc) => {
-      const data: any = doc.data();
-      
-      // Filtrar por finished status se necessário
-      if (!shouldIncludeFinished && data.finished) {
-        return;
-      }
+    const pushDocs = (snap: FirebaseFirestore.QuerySnapshot, source: 'games' | 'championship') => {
+      snap.forEach((doc) => {
+        const data: any = doc.data();
 
-      // Se playerId foi especificado, filtrar por ele
-      if (playerId) {
-        const allPlayers = [...(data.teamA || []), ...(data.teamB || [])];
-        if (!allPlayers.includes(playerId)) {
-          return;
+        // Filter out finished if requested
+        if (!shouldIncludeFinished && data.finished) return;
+
+        // If playerId specified, filter by membership
+        if (playerId) {
+          const allPlayers = [...(data.teamA || []), ...(data.teamB || [])].map((p: any) => (typeof p === 'object' ? p : p));
+          if (!allPlayers.includes(playerId)) return;
         }
-      }
 
-      gamesByPlayerId.set(doc.id, { id: doc.id, ...data });
+        combined.push({ id: doc.id, data, source });
 
-      // Coletar user IDs
-      (data.teamA || []).forEach((id: string) => userIds.add(id));
-      (data.teamB || []).forEach((id: string) => userIds.add(id));
-    });
+        // collect user ids
+        (data.teamA || []).forEach((id: string) => userIds.add(id));
+        (data.teamB || []).forEach((id: string) => userIds.add(id));
+      });
+    };
 
-    // Buscar mapa de usuários
+    pushDocs(gamesSnap, 'games');
+    pushDocs(champSnap, 'championship');
+
+    // Fetch users map
     const usersMap = await getUsersMap(Array.from(userIds));
 
-    // Montar resposta formatada
-    gamesByPlayerId.forEach((data, gameId) => {
-      const teamA = (data.teamA || []).map((id: string) => ({
-        id,
-        name: usersMap.get(id)?.name || 'Unknown',
-      }));
-      const teamB = (data.teamB || []).map((id: string) => ({
-        id,
-        name: usersMap.get(id)?.name || 'Unknown',
-      }));
-
-      games.push({
-        id: gameId,
-        mode: data.mode || 'free',
-        teamA,
-        teamB,
-        scoreA: data.teamA_total || 0,
-        scoreB: data.teamB_total || 0,
-        finished: data.finished || false,
-        winnerTeam: data.winnerTeam,
-        lisa: (data.lisa && data.lisa.length > 0) || false,
-        createdAt: data.createdAt,
+    // Normalize entries and sort by createdAt desc
+    const normalized = combined
+      .map((entry) => {
+        const d = entry.data;
+        return {
+          id: entry.id,
+          source: entry.source,
+          rawId: entry.id,
+          createdAt: d.createdAt,
+          mode: entry.source === 'championship' ? 'championship' : (d.mode || 'free'),
+          teamA: (d.teamA || []).map((id: string) => ({ id, name: usersMap.get(id)?.name || 'Unknown' })),
+          teamB: (d.teamB || []).map((id: string) => ({ id, name: usersMap.get(id)?.name || 'Unknown' })),
+          scoreA: d.teamA_total || d.scoreA || 0,
+          scoreB: d.teamB_total || d.scoreB || 0,
+          finished: d.finished || false,
+          winnerTeam: d.winnerTeam,
+          lisa: (d.lisa && d.lisa.length > 0) || false,
+        };
+      })
+      .sort((a, b) => {
+        const at = a.createdAt && typeof a.createdAt.toDate === 'function' ? a.createdAt.toDate().getTime() : (a.createdAt?.seconds || 0) * 1000;
+        const bt = b.createdAt && typeof b.createdAt.toDate === 'function' ? b.createdAt.toDate().getTime() : (b.createdAt?.seconds || 0) * 1000;
+        return bt - at;
       });
-    });
 
-    // Gerar next cursor para a proxima pagina com base no ultimo doc da pagina atual.
-    if (hasMore && snapshot.docs.length > limit) {
-      const lastDoc = docsToProcess[docsToProcess.length - 1];
-      nextCursor = lastDoc.id;
-    }
+    // Determine pagination
+    const hasMore = normalized.length > limit;
+    const docsToReturn = hasMore ? normalized.slice(0, limit) : normalized.slice(0);
+    const getMillis = (ts: any) => {
+      if (!ts) return 0;
+      if (typeof ts.toDate === 'function') return ts.toDate().getTime();
+      if (ts.seconds) return ts.seconds * 1000;
+      if (ts._seconds) return ts._seconds * 1000;
+      const parsed = new Date(ts);
+      if (!isNaN(parsed.getTime())) return parsed.getTime();
+      return 0;
+    };
+    const nextCursor = hasMore && docsToReturn.length > 0 ? new Date(getMillis(docsToReturn[docsToReturn.length - 1].createdAt)).toISOString() : null;
+
+    const games: GameData[] = docsToReturn.map((g) => ({
+      id: g.id,
+      mode: g.mode as any,
+      teamA: g.teamA,
+      teamB: g.teamB,
+      scoreA: g.scoreA,
+      scoreB: g.scoreB,
+      finished: g.finished,
+      winnerTeam: g.winnerTeam,
+      lisa: g.lisa,
+      createdAt: g.createdAt,
+    }));
 
     return res.status(200).json({
       games,
