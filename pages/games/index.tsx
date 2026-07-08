@@ -280,7 +280,11 @@ export default function GamesPage() {
               : null;
 
             return (
-              <Link key={game.id} href={`/games/${game.id}`} legacyBehavior>
+              <Link
+                key={game.id}
+                href={{ pathname: `/games/${game.id}`, query: game.mode === 'championship' ? { mode: 'championship' } : {} }}
+                legacyBehavior
+              >
                 <a>
                 <Card className="hover:shadow-md transition-shadow cursor-pointer">
                   <CardContent className="pt-6">
