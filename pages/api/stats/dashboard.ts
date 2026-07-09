@@ -2,10 +2,18 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { getCurrentUser } from "../../../lib/auth";
 import FirebaseConnection from "../../../lib/firebaseAdmin";
 import { getCache, setCache } from "../../../lib/serverCache";
+import type { QueryDocumentSnapshot } from "firebase-admin/firestore";
 
 const db = FirebaseConnection.getInstance().db;
 const DASHBOARD_CACHE_TTL_MS = 45 * 1000;
 const USER_CACHE_TTL_MS = 5 * 60 * 1000;
+const FREE_GAMES_COLLECTION = "games";
+const CHAMPIONSHIP_GAMES_COLLECTION = "championship_games";
+
+interface SourcedDoc {
+  source: "free" | "championship";
+  doc: QueryDocumentSnapshot;
+}
 
 function parsePositiveInt(value: unknown, fallback: number, max = 50): number {
   if (typeof value !== "string") return fallback;
@@ -51,81 +59,136 @@ async function getUsersMap(userIds: string[]) {
 }
 
 async function getTotalGamesCount() {
-  const cacheKey = "games:list:totalCount";
+  const cacheKey = "games:list:totalCount:allModes";
   const cached = getCache<number>(cacheKey);
   if (cached !== null) {
     return cached;
   }
 
-  let totalGames = 0;
-  try {
-    const totalSnap = await db.collection("games").count().get();
-    totalGames = totalSnap.data().count;
-  } catch {
-    const totalSnapFallback = await db.collection("games").get();
-    totalGames = totalSnapFallback.size;
-  }
+  const [freeTotal, championshipTotal] = await Promise.all([
+    getCollectionCount(FREE_GAMES_COLLECTION, "games:list:totalCount:free"),
+    getCollectionCount(CHAMPIONSHIP_GAMES_COLLECTION, "games:list:totalCount:championship"),
+  ]);
+  const totalGames = freeTotal + championshipTotal;
 
   setCache(cacheKey, totalGames, DASHBOARD_CACHE_TTL_MS);
   return totalGames;
 }
 
 async function getActiveGamesCount() {
-  const cacheKey = "games:list:activeCount";
+  const cacheKey = "games:list:activeCount:allModes";
   const cached = getCache<number>(cacheKey);
   if (cached !== null) {
     return cached;
   }
 
-  let activeGamesCount = 0;
-  try {
-    const activeCountSnap = await db.collection("games").where("finished", "==", false).count().get();
-    activeGamesCount = activeCountSnap.data().count;
-  } catch {
-    const activeCountFallback = await db.collection("games").where("finished", "==", false).get();
-    activeGamesCount = activeCountFallback.size;
-  }
+  const [freeActive, championshipActive] = await Promise.all([
+    getCollectionCount(FREE_GAMES_COLLECTION, "games:list:activeCount:free", false),
+    getCollectionCount(CHAMPIONSHIP_GAMES_COLLECTION, "games:list:activeCount:championship", false),
+  ]);
+  const activeGamesCount = freeActive + championshipActive;
 
   setCache(cacheKey, activeGamesCount, DASHBOARD_CACHE_TTL_MS);
   return activeGamesCount;
 }
 
-async function getRecentActiveGames(activeLimit: number) {
+async function getCollectionCount(
+  collectionName: string,
+  cacheKey: string,
+  finished?: boolean
+): Promise<number> {
+  const cached = getCache<number>(cacheKey);
+  if (cached !== null) {
+    return cached;
+  }
+
+  let query: any = db.collection(collectionName);
+  if (typeof finished === "boolean") {
+    query = query.where("finished", "==", finished);
+  }
+
+  let count = 0;
   try {
-    const snap = await db.collection("games")
+    const snap = await query.count().get();
+    count = snap.data().count;
+  } catch {
+    const fallbackSnap = await query.get();
+    count = fallbackSnap.size;
+  }
+
+  setCache(cacheKey, count, DASHBOARD_CACHE_TTL_MS);
+  return count;
+}
+
+function sortDocsByCreatedAtDesc(a: any, b: any) {
+  return getCreatedAtScore(b.data()) - getCreatedAtScore(a.data());
+}
+
+async function getRecentActiveGames(activeLimit: number) {
+  const [freeDocs, championshipDocs] = await Promise.all([
+    getRecentActiveGamesByCollection(FREE_GAMES_COLLECTION, activeLimit),
+    getRecentActiveGamesByCollection(CHAMPIONSHIP_GAMES_COLLECTION, activeLimit),
+  ]);
+
+  return [...freeDocs, ...championshipDocs]
+    .sort((a, b) => sortDocsByCreatedAtDesc(a.doc, b.doc))
+    .slice(0, activeLimit);
+}
+
+async function getRecentActiveGamesByCollection(collectionName: string, limit: number) {
+  try {
+    const snap = await db.collection(collectionName)
       .where("finished", "==", false)
       .orderBy("createdAt", "desc")
-      .limit(activeLimit)
+      .limit(limit)
       .get();
-    return snap.docs;
+    return snap.docs.map((doc) => ({
+      source: collectionName === CHAMPIONSHIP_GAMES_COLLECTION ? "championship" : "free",
+      doc,
+    } as SourcedDoc));
   } catch {
-    const fallbackSnap = await db.collection("games")
+    const fallbackSnap = await db.collection(collectionName)
       .where("finished", "==", false)
       .get();
 
     return fallbackSnap.docs
-      .sort((a, b) => getCreatedAtScore(b.data()) - getCreatedAtScore(a.data()))
-      .slice(0, activeLimit);
+      .sort(sortDocsByCreatedAtDesc)
+      .slice(0, limit)
+      .map((doc) => ({
+        source: collectionName === CHAMPIONSHIP_GAMES_COLLECTION ? "championship" : "free",
+        doc,
+      } as SourcedDoc));
   }
 }
 
 async function getFinishedGamesForUser(userId: string) {
+  const [freeGames, championshipGames] = await Promise.all([
+    getFinishedGamesForUserInCollection(FREE_GAMES_COLLECTION, userId),
+    getFinishedGamesForUserInCollection(CHAMPIONSHIP_GAMES_COLLECTION, userId),
+  ]);
+  return [...freeGames, ...championshipGames];
+}
+
+async function getFinishedGamesForUserInCollection(collectionName: string, userId: string) {
   try {
-    const participantsSnap = await db.collection("games")
+    const participantsSnap = await db.collection(collectionName)
       .where("finished", "==", true)
       .where("participants", "array-contains", userId)
       .get();
 
     if (!participantsSnap.empty) {
-      return participantsSnap.docs;
+      return participantsSnap.docs.map((doc) => ({
+        source: collectionName === CHAMPIONSHIP_GAMES_COLLECTION ? "championship" : "free",
+        doc,
+      } as SourcedDoc));
     }
 
     const [teamASnap, teamBSnap] = await Promise.all([
-      db.collection("games")
+      db.collection(collectionName)
         .where("finished", "==", true)
         .where("teamA", "array-contains", userId)
         .get(),
-      db.collection("games")
+      db.collection(collectionName)
         .where("finished", "==", true)
         .where("teamB", "array-contains", userId)
         .get(),
@@ -134,16 +197,22 @@ async function getFinishedGamesForUser(userId: string) {
     const docsMap = new Map<string, any>();
     teamASnap.docs.forEach((doc) => docsMap.set(doc.id, doc));
     teamBSnap.docs.forEach((doc) => docsMap.set(doc.id, doc));
-    return Array.from(docsMap.values());
+    return Array.from(docsMap.values()).map((doc) => ({
+      source: collectionName === CHAMPIONSHIP_GAMES_COLLECTION ? "championship" : "free",
+      doc,
+    } as SourcedDoc));
   } catch {
-    const fullFinishedSnap = await db.collection("games")
+    const fullFinishedSnap = await db.collection(collectionName)
       .where("finished", "==", true)
       .get();
 
     return fullFinishedSnap.docs.filter((doc) => {
       const game: any = doc.data();
       return (game.teamA || []).includes(userId) || (game.teamB || []).includes(userId);
-    });
+    }).map((doc) => ({
+      source: collectionName === CHAMPIONSHIP_GAMES_COLLECTION ? "championship" : "free",
+      doc,
+    } as SourcedDoc));
   }
 }
 
@@ -165,15 +234,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.json(cached);
     }
 
-    const [totalGames, activeGamesCount, activeGameDocs, finishedUserGames] = await Promise.all([
+    const [totalGames, activeGamesCount, activeGameDocs, finishedUserGames, totalGamesFree, totalGamesChampionship, activeGamesFree, activeGamesChampionship] = await Promise.all([
       getTotalGamesCount(),
       getActiveGamesCount(),
       getRecentActiveGames(activeLimit),
       getFinishedGamesForUser(currentUser.id),
+      getCollectionCount(FREE_GAMES_COLLECTION, "games:list:totalCount:free"),
+      getCollectionCount(CHAMPIONSHIP_GAMES_COLLECTION, "games:list:totalCount:championship"),
+      getCollectionCount(FREE_GAMES_COLLECTION, "games:list:activeCount:free", false),
+      getCollectionCount(CHAMPIONSHIP_GAMES_COLLECTION, "games:list:activeCount:championship", false),
     ]);
 
     const allUserIds = new Set<string>();
-    activeGameDocs.forEach((doc) => {
+    activeGameDocs.forEach(({ doc }) => {
       const data: any = doc.data();
       (data.teamA || []).forEach((id: string) => allUserIds.add(id));
       (data.teamB || []).forEach((id: string) => allUserIds.add(id));
@@ -181,10 +254,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const usersMap = await getUsersMap(Array.from(allUserIds));
 
-    const activeGames = activeGameDocs.map((doc) => {
+    const activeGames = activeGameDocs.map(({ doc, source }) => {
       const data: any = doc.data();
       return {
         id: doc.id,
+        mode: source,
         createdBy: data.createdBy,
         createdAt: data.createdAt ? { seconds: data.createdAt.seconds, nanoseconds: data.createdAt.nanoseconds } : null,
         teamA: (data.teamA || []).map((id: string) => usersMap.get(id) || { id, name: "Unknown" }),
@@ -205,8 +279,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let defeats = 0;
     let lisasApplied = 0;
     let lisasTaken = 0;
+    let victoriesFree = 0;
+    let defeatsFree = 0;
+    let victoriesChampionship = 0;
+    let defeatsChampionship = 0;
 
-    finishedUserGames.forEach((doc) => {
+    finishedUserGames.forEach(({ doc, source }) => {
       const game: any = doc.data();
       const teamAIds = game.teamA || [];
       const teamBIds = game.teamB || [];
@@ -224,17 +302,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (isInTeamA) {
         if (winnerTeam === "A") {
           victories++;
+          if (source === "championship") victoriesChampionship++;
+          else victoriesFree++;
           if (scoreA >= 100 && scoreB === 0) lisasApplied++;
         } else {
           defeats++;
+          if (source === "championship") defeatsChampionship++;
+          else defeatsFree++;
           if (scoreA === 0 && scoreB >= 100) lisasTaken++;
         }
       } else if (isInTeamB) {
         if (winnerTeam === "B") {
           victories++;
+          if (source === "championship") victoriesChampionship++;
+          else victoriesFree++;
           if (scoreB >= 100 && scoreA === 0) lisasApplied++;
         } else {
           defeats++;
+          if (source === "championship") defeatsChampionship++;
+          else defeatsFree++;
           if (scoreB === 0 && scoreA >= 100) lisasTaken++;
         }
       }
@@ -244,12 +330,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       activeGames,
       totalGames,
       activeGamesCount,
+      gameTotals: {
+        totalGames,
+        totalGamesFree,
+        totalGamesChampionship,
+        activeGamesCount,
+        activeGamesFree,
+        activeGamesChampionship,
+      },
       userStats: {
         victories,
         defeats,
         lisasApplied,
         lisasTaken,
         totalGames: victories + defeats,
+      },
+      userStatsByMode: {
+        free: {
+          victories: victoriesFree,
+          defeats: defeatsFree,
+          totalGames: victoriesFree + defeatsFree,
+        },
+        championship: {
+          victories: victoriesChampionship,
+          defeats: defeatsChampionship,
+          totalGames: victoriesChampionship + defeatsChampionship,
+        },
       },
     };
 

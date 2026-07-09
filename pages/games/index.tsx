@@ -27,11 +27,20 @@ export default function GamesPage() {
   const router = useRouter();
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [selectedPlayerId, setSelectedPlayerId] = useState('');
+  const [selectedMode, setSelectedMode] = useState<'free' | 'championship' | ''>('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [searchError, setSearchError] = useState('');
+  const [appliedFilters, setAppliedFilters] = useState<{
+    playerId?: string;
+    mode?: 'free' | 'championship';
+    startDate?: string;
+    endDate?: string;
+  }>({});
+  const [searchNonce, setSearchNonce] = useState<number>(Date.now());
   const [cursor, setCursor] = useState<string | null>(null);
   const [allFetchedGames, setAllFetchedGames] = useState<Game[]>([]);
-  const [pageSize] = useState(10);
+  const [pageSize] = useState(6);
 
   // Fetch players list
   const { data: usersData, isLoading: usersLoading } = useAllUsers();
@@ -42,12 +51,14 @@ export default function GamesPage() {
 
   // Fetch games based on current filters
   const { data: searchData, isLoading: gamesLoading } = useSearchGames(
-    selectedPlayerId || undefined,
-    startDate || undefined,
-    endDate || undefined,
+    appliedFilters.playerId,
+    appliedFilters.mode,
+    appliedFilters.startDate,
+    appliedFilters.endDate,
     pageSize,
     cursor || undefined,
-    true
+    true,
+    searchNonce
   );
 
   React.useEffect(() => {
@@ -61,18 +72,35 @@ export default function GamesPage() {
   const nextCursor = searchData?.nextCursor || null;
 
   const handleSearch = () => {
+    if (!selectedPlayerId) {
+      setSearchError('Selecione um jogador para realizar a busca.');
+      return;
+    }
+
+    setSearchError('');
     // Reset pagination
     setCursor(null);
     setAllFetchedGames([]);
+    setAppliedFilters({
+      playerId: selectedPlayerId,
+      mode: selectedMode || undefined,
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
+    });
+    setSearchNonce(Date.now());
   };
 
   const handleClearFilters = () => {
     setSelectedPlayerId('');
+    setSelectedMode('');
     setStartDate('');
     setEndDate('');
+    setSearchError('');
     setCursor(null);
     setAllFetchedGames([]);
     setShowAdvanced(false);
+    setAppliedFilters({});
+    setSearchNonce(Date.now());
   };
 
   const handleLoadMore = () => {
@@ -127,7 +155,12 @@ export default function GamesPage() {
   }
 
   const displayedGames = cursor ? allFetchedGames.concat(games) : games;
-  const isSearching = selectedPlayerId || startDate || endDate;
+  const isSearching = Boolean(
+    appliedFilters.playerId ||
+    appliedFilters.mode ||
+    appliedFilters.startDate ||
+    appliedFilters.endDate
+  );
 
   return (
     <div className="space-y-6">
@@ -139,7 +172,7 @@ export default function GamesPage() {
           <p className="text-gray-600 mt-1">
             {isSearching
               ? `${displayedGames.length} partida${displayedGames.length !== 1 ? 's' : ''} encontrada${displayedGames.length !== 1 ? 's' : ''}`
-              : 'Buscar e consultar partidas por jogador ou período'}
+              : 'Buscar e consultar partidas por jogador, modalidade ou período'}
           </p>
         </div>
         <Link href="/games/new">
@@ -169,13 +202,29 @@ export default function GamesPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Select
                   label="Filtrar por jogador"
-                  placeholder="Todos os jogadores"
+                  placeholder="Selecione um jogador"
                   value={selectedPlayerId}
-                  onChange={setSelectedPlayerId}
+                  onChange={(value) => {
+                    setSelectedPlayerId(value);
+                    if (value) setSearchError('');
+                  }}
                   options={users}
                   disabled={usersLoading}
                 />
+                <Select
+                  label="Filtrar por modalidade"
+                  placeholder="Todas as modalidades"
+                  value={selectedMode}
+                  onChange={(value) => setSelectedMode(value as 'free' | 'championship' | '')}
+                  options={[
+                    { id: 'free', name: 'Livre' },
+                    { id: 'championship', name: 'Campeonato' },
+                  ]}
+                />
               </div>
+              {searchError && (
+                <p className="mt-2 text-sm text-red-600">{searchError}</p>
+              )}
             </div>
 
             {/* Advanced Filters */}
@@ -320,6 +369,7 @@ export default function GamesPage() {
 
                       {/* Scores */}
                       <div className="space-y-3">
+                        <p className="text-xs text-gray-500">Pontuação acumulada da partida (100 pontos define o vencedor na finalização).</p>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 flex-1 min-w-0">
                             {winner === 'A' && (

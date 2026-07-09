@@ -52,7 +52,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const ineligible = allStats.filter((s) => s.totalGames < params.minGamesForMonthlyRanking);
 
     const { sorted: sortedEligible } = sortAndDetectTies(eligible);
-    const sortedIneligible = [...ineligible].sort((a, b) => b.totalGames - a.totalGames);
+    const sortedIneligible = [...ineligible].sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (b.victories !== a.victories) return b.victories - a.victories;
+      return b.totalGames - a.totalGames;
+    });
 
     const medalProjection = (position: number): MedalType => {
       if (position === 1) return "gold";
@@ -72,8 +76,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     );
 
     const enrichedIneligible = await enrichWithNames(
-      sortedIneligible.map((s) => ({
+      sortedIneligible.map((s, i) => ({
         ...s,
+        partialPosition: i + 1,
+        partialScore: s.score,
         gamesNeeded: params.minGamesForMonthlyRanking - s.totalGames,
       })),
       db as any

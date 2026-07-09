@@ -33,6 +33,8 @@ Aplicacao fullstack para gestao de partidas de domino com autenticacao, administ
 - Criar partida.
 - Listar partidas (com opcoes de pagina, filtros de escopo e cursor).
 - Buscar partidas por jogador/data.
+- Buscar partidas por modalidade.
+- Na tela de partidas, busca exige jogador selecionado para evitar consulta global.
 - Obter detalhe da partida.
 - Adicionar rodada.
 - Excluir rodada de jogo em andamento.
@@ -40,9 +42,11 @@ Aplicacao fullstack para gestao de partidas de domino com autenticacao, administ
 - Cancelar partida (admin).
 
 ### 5) Estatisticas
-- Dashboard consolidado com partidas ativas e resumo do usuario.
+- Dashboard consolidado com partidas ativas e resumo do usuario (modos livre e campeonato).
 - Estatisticas pessoais (vitorias, derrotas, lisas).
 - Ranking geral e ranking modo lisa.
+- Ranking mensal de campeonato com grupos elegiveis e nao elegiveis.
+- Ranking mensal mostra pontuacao parcial dos nao elegiveis.
 - Ranking de duplas (panela).
 
 ### 6) Interface
@@ -59,7 +63,6 @@ Aplicacao fullstack para gestao de partidas de domino com autenticacao, administ
 ## Limitacoes conhecidas da implementacao atual
 - Hash de senha atual usa SHA-256 (sem work factor de bcrypt/argon2).
 - Endpoint de adicionar rodada nao valida no backend se usuario participa da partida.
-- Endpoint de busca de jogos nao aplica cursor na query atual (cursor recebido, mas nao consumido).
 
 ## Proximas evolucoes recomendadas
 - Migracao de hash para bcrypt/argon2 com estrategia progressiva.

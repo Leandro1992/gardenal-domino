@@ -33,6 +33,10 @@ interface EligiblePlayer {
 interface IneligiblePlayer {
   userId: string;
   name: string;
+  partialPosition: number;
+  partialScore: number;
+  victories: number;
+  defeats: number;
   totalGames: number;
   gamesNeeded: number;
 }
@@ -489,12 +493,23 @@ export default function RankingPage() {
                       <CardContent className="pt-3 pb-3">
                         <div className="flex items-center justify-between">
                           <div>
-                            <span className="font-medium text-gray-700">{p.name}</span>
-                            <span className="text-sm text-gray-500 ml-2">{p.totalGames} jogos</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold text-gray-500">#{p.partialPosition}</span>
+                              <span className="font-medium text-gray-700">{p.name}</span>
+                              <span className="text-sm text-gray-500">{p.totalGames} jogos</span>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Parcial: {p.victories}V / {p.defeats}D
+                            </p>
                           </div>
-                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                            Faltam {p.gamesNeeded} jogo{p.gamesNeeded !== 1 ? 's' : ''}
-                          </span>
+                          <div className="text-right">
+                            <div className={`text-xl font-bold ${p.partialScore > 0 ? 'text-green-600' : p.partialScore < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                              {p.partialScore > 0 ? '+' : ''}{p.partialScore}
+                            </div>
+                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded inline-block mt-1">
+                              Faltam {p.gamesNeeded} jogo{p.gamesNeeded !== 1 ? 's' : ''}
+                            </span>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>

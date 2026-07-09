@@ -31,6 +31,9 @@ Aplicacao web para registrar partidas de domino, acompanhar estatisticas e ranki
 - Finalizacao manual com validacao de 100+ pontos.
 - Exclusao de rodada em jogo ativo com renumeracao e recalculo de totais.
 - Cancelamento de partida por admin (DELETE /api/games/:id).
+- Home e listagens consolidadas entre modos livre e campeonato.
+- Busca de partidas com filtros por jogador/modalidade/data e paginação por cursor.
+- Busca na tela de partidas exige selecao de jogador para evitar varredura global pesada.
 
 ### Estatisticas
 - Dashboard resumido (/api/stats/dashboard).
@@ -77,6 +80,7 @@ Aplicacao web para registrar partidas de domino, acompanhar estatisticas e ranki
 - GET /api/stats/me
 - GET /api/stats/ranking
 - GET /api/stats/panela
+- GET /api/championship-ranking
 
 ## Setup local
 
@@ -116,7 +120,7 @@ npm start
 
 ## Limitacoes conhecidas (revisao atual)
 - POST /api/games/:id/rounds nao valida no backend se o usuario autenticado participa da partida.
-- GET /api/games/search recebe cursor, mas nao aplica paginacao por cursor na query atual.
+- Fechamento de ciclo de campeonato e irreversivel (operacao administrativa sensivel).
 
 ## Documentacao complementar
 - SDD.md: arquitetura e desenho tecnico.

@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 
 interface ExportData {
+  mode: string;
   teamA: string;
   teamB: string;
   scoreA: number;
@@ -18,6 +19,7 @@ export function exportToExcel(games: any[], filename = 'partidas.xlsx') {
       : null;
 
     return {
+      mode: (game.mode || 'free') === 'championship' ? 'Campeonato' : 'Livre',
       teamA: game.teamA.map((p: any) => p.name).join(' & '),
       teamB: game.teamB.map((p: any) => p.name).join(' & '),
       scoreA: game.scoreA,
@@ -32,11 +34,12 @@ export function exportToExcel(games: any[], filename = 'partidas.xlsx') {
   });
 
   const worksheet = XLSX.utils.json_to_sheet(data, {
-    header: ['teamA', 'teamB', 'scoreA', 'scoreB', 'status', 'winner', 'lisa', 'createdAt'],
+    header: ['mode', 'teamA', 'teamB', 'scoreA', 'scoreB', 'status', 'winner', 'lisa', 'createdAt'],
   });
 
   // Configurar largura das colunas
   worksheet['!cols'] = [
+    { wch: 14 },
     { wch: 20 },
     { wch: 20 },
     { wch: 8 },
@@ -55,7 +58,7 @@ export function exportToExcel(games: any[], filename = 'partidas.xlsx') {
   };
 
   // Aplicar estilo ao header
-  for (let col = 0; col < 8; col++) {
+  for (let col = 0; col < 9; col++) {
     const cellRef = XLSX.utils.encode_col(col) + '1';
     if (worksheet[cellRef]) {
       worksheet[cellRef].s = headerStyle;

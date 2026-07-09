@@ -2,7 +2,7 @@ import React from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/lib/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { BookOpenText, CalendarDays, Trophy, SlidersHorizontal, AlertTriangle } from 'lucide-react';
+import { BookOpenText, CalendarDays, Trophy, SlidersHorizontal, AlertTriangle, Flag } from 'lucide-react';
 
 export default function AdminManualPage() {
   const { user, loading } = useAuth();
@@ -27,15 +27,29 @@ export default function AdminManualPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <BookOpenText className="h-5 w-5" />
-            Fluxo recomendado do campeonato
+            Modo campeonato (resumo rapido)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm text-gray-700">
+          <p><strong>Objetivo:</strong> disputar o ciclo mensal com ranking parcial e medalhas no fechamento.</p>
+          <p><strong>Pontuacao:</strong> vitoria +1, derrota -1, lisa aplicada +2, lisa tomada -2.</p>
+          <p><strong>Fechamento:</strong> manual, gera medalhas dos elegiveis (ouro 4, prata 3, bronze 2, participacao 1).</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Flag className="h-5 w-5" />
+            Limitacoes e regras do modo campeonato
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-gray-700">
-          <p><strong>1.</strong> Acesse <strong>Parâmetros</strong> e confira mínimo de jogos e limite de repetição de dupla.</p>
-          <p><strong>2.</strong> Acesse <strong>Ciclos</strong> e abra o ciclo mensal atual.</p>
-          <p><strong>3.</strong> Durante o mês, acompanhe o ranking mensal na tela <strong>Ranking</strong>.</p>
-          <p><strong>4.</strong> No fechamento, use <strong>Ciclos &gt; Fechar ciclo</strong> para consolidar medalhas.</p>
-          <p><strong>5.</strong> Se houver empate técnico (score, vitórias e derrotas iguais), defina o vencedor no desempate manual.</p>
+          <p><strong>1.</strong> Somente <strong>1 ciclo aberto</strong> por vez.</p>
+          <p><strong>2.</strong> Jogador nao pode estar em mais de uma partida ativa.</p>
+          <p><strong>3.</strong> Repeticao de dupla no ciclo respeita o limite configurado.</p>
+          <p><strong>4.</strong> Ranking mensal exige minimo de jogos para elegibilidade.</p>
+          <p><strong>5.</strong> Fechamento do ciclo e irreversivel e pode exigir desempate manual.</p>
         </CardContent>
       </Card>
 
