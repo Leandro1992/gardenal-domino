@@ -231,6 +231,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const ref = await db.collection("championship_games").add(game);
     clearCacheByPrefix(`championship:games:list:`);
+    clearCacheByPrefix("stats:");
 
     const usersMap = await getUsersMap(unique);
     return res.status(201).json({
@@ -268,6 +269,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await ref.delete();
     clearCacheByPrefix("championship:games:list:");
     clearCacheByPrefix("championship:ranking:");
+    clearCacheByPrefix("stats:");
     return res.json({ ok: true, message: "Partida de campeonato cancelada com sucesso" });
   }
 
@@ -308,6 +310,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
 
       clearCacheByPrefix("championship:games:list:");
+      clearCacheByPrefix("stats:");
       const snap = await gameRef.get();
       const data: any = snap.data();
       const allIds = [...(data.teamA || []), ...(data.teamB || [])];
@@ -353,6 +356,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
 
       clearCacheByPrefix("championship:games:list:");
+      clearCacheByPrefix("stats:");
       return res.json({ ok: true });
     } catch (err: any) {
       return res.status(400).json({ error: err.message || "Erro ao remover rodada" });
@@ -410,6 +414,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       clearCacheByPrefix("championship:games:list:");
       clearCacheByPrefix("championship:ranking:");
+      clearCacheByPrefix("stats:");
 
       // Normalizar retorno: `lisa` como booleano e `lisaPlayers` com lista real
       const isLisa = Array.isArray(result.lisa) ? result.lisa.length > 0 : Boolean(result.lisa);

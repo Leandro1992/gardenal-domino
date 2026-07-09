@@ -9,6 +9,7 @@ import { useDashboardSummary } from '@/lib/useAppData';
 
 interface Game {
   id: string;
+  mode?: 'free' | 'championship';
   teamA: { id: string; name: string }[];
   teamB: { id: string; name: string }[];
   scoreA: number;
@@ -25,6 +26,12 @@ interface UserStats {
   defeats: number;
   lisasApplied: number;
   lisasTaken: number;
+  totalGames: number;
+}
+
+interface UserModeStats {
+  victories: number;
+  defeats: number;
   totalGames: number;
 }
 
@@ -48,9 +55,18 @@ export default function HomePage() {
   }
 
   const activeGames = data?.activeGames || [];
-  const totalGamesCount = typeof data?.totalGames === 'number' ? data.totalGames : activeGames.length;
-  const activeGamesCount = typeof data?.activeGamesCount === 'number' ? data.activeGamesCount : activeGames.length;
+  const totalGamesCount = typeof data?.gameTotals?.totalGames === 'number'
+    ? data.gameTotals.totalGames
+    : (typeof data?.totalGames === 'number' ? data.totalGames : activeGames.length);
+  const activeGamesCount = typeof data?.gameTotals?.activeGamesCount === 'number'
+    ? data.gameTotals.activeGamesCount
+    : (typeof data?.activeGamesCount === 'number' ? data.activeGamesCount : activeGames.length);
+  const totalGamesFree = data?.gameTotals?.totalGamesFree || 0;
+  const totalGamesChampionship = data?.gameTotals?.totalGamesChampionship || 0;
+  const activeGamesFree = data?.gameTotals?.activeGamesFree || 0;
+  const activeGamesChampionship = data?.gameTotals?.activeGamesChampionship || 0;
   const userStats: UserStats | null = data?.userStats || null;
+  const userStatsByMode: { free: UserModeStats; championship: UserModeStats } | null = data?.userStatsByMode || null;
 
   return (
     <div className="space-y-6">
@@ -80,8 +96,11 @@ export default function HomePage() {
               <div className="mx-auto w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-3">
                 <Trophy className="h-6 w-6 text-green-600" />
               </div>
-              <p className="text-sm font-medium text-gray-500 mb-1">Vitórias</p>
+              <p className="text-sm font-medium text-gray-500 mb-1">Vitórias (todas)</p>
               <p className="text-2xl font-bold text-gray-900">{userStats?.victories || 0}</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Livre {userStatsByMode?.free.victories || 0} • Camp. {userStatsByMode?.championship.victories || 0}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -92,8 +111,11 @@ export default function HomePage() {
               <div className="mx-auto w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mb-3">
                 <Target className="h-6 w-6 text-red-600" />
               </div>
-              <p className="text-sm font-medium text-gray-500 mb-1">Derrotas</p>
+              <p className="text-sm font-medium text-gray-500 mb-1">Derrotas (todas)</p>
               <p className="text-2xl font-bold text-gray-900">{userStats?.defeats || 0}</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Livre {userStatsByMode?.free.defeats || 0} • Camp. {userStatsByMode?.championship.defeats || 0}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -130,6 +152,9 @@ export default function HomePage() {
               </div>
               <p className="text-sm font-medium text-gray-500 mb-1">Total de Partidas</p>
               <p className="text-2xl font-bold text-gray-900">{totalGamesCount}</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Livre {totalGamesFree} • Camp. {totalGamesChampionship}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -142,6 +167,9 @@ export default function HomePage() {
               </div>
               <p className="text-sm font-medium text-gray-500 mb-1">Em Andamento</p>
               <p className="text-2xl font-bold text-gray-900">{activeGamesCount}</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Livre {activeGamesFree} • Camp. {activeGamesChampionship}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -155,12 +183,28 @@ export default function HomePage() {
           </h2>
           <div className="grid gap-4">
             {activeGames.map((game) => (
-              <Link key={game.id} href={`/games/${game.id}`} legacyBehavior>
+              <Link
+                key={game.id}
+                href={{
+                  pathname: `/games/${game.id}`,
+                  query: game.mode === 'championship' ? { mode: 'championship' } : {},
+                }}
+                legacyBehavior
+              >
                 <a>
                   <Card className="hover:shadow-md transition-shadow cursor-pointer">
                     <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
+                        <div className="mb-3">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            game.mode === 'championship'
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-slate-100 text-slate-700'
+                          }`}>
+                            {game.mode === 'championship' ? 'Campeonato' : 'Livre'}
+                          </span>
+                        </div>
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center space-x-2">
                             <span className="text-sm font-medium text-gray-700">

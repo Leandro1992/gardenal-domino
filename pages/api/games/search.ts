@@ -18,6 +18,24 @@ interface GameData {
   createdAt: any;
 }
 
+type SourceCollection = 'games' | 'championship';
+
+function getTeamPlayerIds(team: any[]): string[] {
+  if (!Array.isArray(team)) return [];
+  return team
+    .map((player) => (typeof player === 'string' ? player : player?.id))
+    .filter((id): id is string => typeof id === 'string' && id.length > 0);
+}
+
+function getCreatedAtMillis(createdAt: any): number {
+  if (!createdAt) return 0;
+  if (typeof createdAt.toDate === 'function') return createdAt.toDate().getTime();
+  if (typeof createdAt.seconds === 'number') return createdAt.seconds * 1000;
+  if (typeof createdAt._seconds === 'number') return createdAt._seconds * 1000;
+  const parsed = new Date(createdAt);
+  return isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+}
+
 async function getUsersMap(userIds: string[]) {
   const usersMap = new Map<string, { id: string; name: string }>();
   const uniqueIds = Array.from(new Set(userIds));
@@ -48,8 +66,11 @@ export default async function handler(
   }
 
   try {
+    res.setHeader('Cache-Control', 'no-store');
+
     const {
       playerId,
+      mode,
       startDate,
       endDate,
       pageSize = '20',
@@ -59,6 +80,11 @@ export default async function handler(
 
     const limit = Math.min(parseInt(pageSize as string) || 20, 100);
     const shouldIncludeFinished = includeFinished !== 'false';
+    const targetPlayerId = typeof playerId === 'string' ? playerId : '';
+    const selectedMode =
+      mode === 'free' || mode === 'championship'
+        ? mode
+        : 'all';
 
     // Interpret cursor as ISO timestamp (createdAt) for merged pagination across collections
     let cursorTimestamp: admin.firestore.Timestamp | null = null;
@@ -69,61 +95,113 @@ export default async function handler(
       }
     }
 
-    // Prepare queries for both collections
-    let gamesQuery = db.collection('games').orderBy('createdAt', 'desc') as any;
-    let champQuery = db.collection('championship_games').orderBy('createdAt', 'desc') as any;
+    // Prepare queries for collections according to selected mode
+    const queries: Array<{ source: SourceCollection; query: any }> = [];
+    if (selectedMode !== 'championship') {
+      queries.push({
+        source: 'games',
+        query: db.collection('games').orderBy('createdAt', 'desc') as any,
+      });
+    }
+    if (selectedMode !== 'free') {
+      queries.push({
+        source: 'championship',
+        query: db.collection('championship_games').orderBy('createdAt', 'desc') as any,
+      });
+    }
 
-    // Apply date range filters if provided
-    if (startDate && endDate) {
-      const start = new Date(startDate as string);
-      const end = new Date(endDate as string);
+    // Apply date filters (supports start-only, end-only, or both)
+    let startTimestamp: admin.firestore.Timestamp | null = null;
+    let endTimestamp: admin.firestore.Timestamp | null = null;
+
+    if (typeof startDate === 'string' && startDate.trim()) {
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      if (!isNaN(start.getTime())) {
+        startTimestamp = admin.firestore.Timestamp.fromDate(start);
+      }
+    }
+
+    if (typeof endDate === 'string' && endDate.trim()) {
+      const end = new Date(endDate);
       end.setHours(23, 59, 59, 999);
-
-      const startTimestamp = admin.firestore.Timestamp.fromDate(start);
-      const endTimestamp = admin.firestore.Timestamp.fromDate(end);
-
-      gamesQuery = gamesQuery.where('createdAt', '>=', startTimestamp).where('createdAt', '<=', endTimestamp);
-      champQuery = champQuery.where('createdAt', '>=', startTimestamp).where('createdAt', '<=', endTimestamp);
+      if (!isNaN(end.getTime())) {
+        endTimestamp = admin.firestore.Timestamp.fromDate(end);
+      }
     }
 
-    // Apply cursor (createdAt < cursor) to both queries when provided
-    if (cursorTimestamp) {
-      gamesQuery = gamesQuery.where('createdAt', '<', cursorTimestamp);
-      champQuery = champQuery.where('createdAt', '<', cursorTimestamp);
-    }
-
-    // Fetch snapshots (limit+1 from each collection to detect more results after merge)
-    const [gamesSnap, champSnap] = await Promise.all([
-      gamesQuery.limit(limit + 1).get(),
-      champQuery.limit(limit + 1).get(),
-    ]);
-
-    const combined: { id: string; data: any; source: 'games' | 'championship' }[] = [];
+    const hasDatabaseSearchFilters = Boolean(targetPlayerId || startTimestamp || endTimestamp);
+    const combined: { id: string; data: any; source: SourceCollection }[] = [];
     const userIds = new Set<string>();
+    const cursorMillis = cursorTimestamp ? cursorTimestamp.toMillis() : 0;
 
-    const pushDocs = (snap: FirebaseFirestore.QuerySnapshot, source: 'games' | 'championship') => {
-      snap.forEach((doc) => {
-        const data: any = doc.data();
-
+    const pushDocs = (
+      docs: Array<{ id: string; data: any }>,
+      source: SourceCollection
+    ) => {
+      docs.forEach(({ id, data }) => {
         // Filter out finished if requested
         if (!shouldIncludeFinished && data.finished) return;
 
         // If playerId specified, filter by membership
-        if (playerId) {
-          const allPlayers = [...(data.teamA || []), ...(data.teamB || [])].map((p: any) => (typeof p === 'object' ? p : p));
-          if (!allPlayers.includes(playerId)) return;
+        if (targetPlayerId) {
+          const allPlayers = [...getTeamPlayerIds(data.teamA || []), ...getTeamPlayerIds(data.teamB || [])];
+          if (!allPlayers.includes(targetPlayerId)) return;
         }
 
-        combined.push({ id: doc.id, data, source });
+        combined.push({ id, data, source });
 
         // collect user ids
-        (data.teamA || []).forEach((id: string) => userIds.add(id));
-        (data.teamB || []).forEach((id: string) => userIds.add(id));
+        getTeamPlayerIds(data.teamA || []).forEach((id) => userIds.add(id));
+        getTeamPlayerIds(data.teamB || []).forEach((id) => userIds.add(id));
       });
     };
 
-    pushDocs(gamesSnap, 'games');
-    pushDocs(champSnap, 'championship');
+    if (hasDatabaseSearchFilters) {
+      const allDocsBySource = await Promise.all(
+        queries.map(async ({ source }) => {
+          const collectionName = source === 'championship' ? 'championship_games' : 'games';
+          let scopedQuery: any = db.collection(collectionName);
+          if (!shouldIncludeFinished) scopedQuery = scopedQuery.where('finished', '==', false);
+          if (startTimestamp) scopedQuery = scopedQuery.where('createdAt', '>=', startTimestamp);
+          if (endTimestamp) scopedQuery = scopedQuery.where('createdAt', '<=', endTimestamp);
+
+          try {
+            const snap = await scopedQuery.get();
+            return {
+              source,
+              docs: snap.docs.map((doc) => ({ id: doc.id, data: doc.data() })),
+            };
+          } catch {
+            const fallbackSnap = await db.collection(collectionName).get();
+            const docs = fallbackSnap.docs
+              .map((doc) => ({ id: doc.id, data: doc.data() }))
+              .filter(({ data }) => {
+                if (!shouldIncludeFinished && data.finished) return false;
+                const createdAtMillis = getCreatedAtMillis(data.createdAt);
+                if (startTimestamp && createdAtMillis < startTimestamp.toMillis()) return false;
+                if (endTimestamp && createdAtMillis > endTimestamp.toMillis()) return false;
+                return true;
+              });
+            return { source, docs };
+          }
+        })
+      );
+
+      allDocsBySource.forEach(({ source, docs }) => pushDocs(docs, source));
+    } else {
+      const snapshots = await Promise.all(
+        queries.map(async ({ source, query }) => {
+          let scopedQuery = query;
+          if (!shouldIncludeFinished) scopedQuery = scopedQuery.where('finished', '==', false);
+          if (cursorTimestamp) scopedQuery = scopedQuery.where('createdAt', '<', cursorTimestamp);
+          const snap = await scopedQuery.limit(limit + 1).get();
+          return { source, docs: snap.docs.map((doc) => ({ id: doc.id, data: doc.data() })) };
+        })
+      );
+
+      snapshots.forEach(({ source, docs }) => pushDocs(docs, source));
+    }
 
     // Fetch users map
     const usersMap = await getUsersMap(Array.from(userIds));
@@ -138,8 +216,8 @@ export default async function handler(
           rawId: entry.id,
           createdAt: d.createdAt,
           mode: entry.source === 'championship' ? 'championship' : (d.mode || 'free'),
-          teamA: (d.teamA || []).map((id: string) => ({ id, name: usersMap.get(id)?.name || 'Unknown' })),
-          teamB: (d.teamB || []).map((id: string) => ({ id, name: usersMap.get(id)?.name || 'Unknown' })),
+          teamA: getTeamPlayerIds(d.teamA || []).map((id: string) => ({ id, name: usersMap.get(id)?.name || 'Unknown' })),
+          teamB: getTeamPlayerIds(d.teamB || []).map((id: string) => ({ id, name: usersMap.get(id)?.name || 'Unknown' })),
           scoreA: d.teamA_total || d.scoreA || 0,
           scoreB: d.teamB_total || d.scoreB || 0,
           finished: d.finished || false,
@@ -148,24 +226,21 @@ export default async function handler(
         };
       })
       .sort((a, b) => {
-        const at = a.createdAt && typeof a.createdAt.toDate === 'function' ? a.createdAt.toDate().getTime() : (a.createdAt?.seconds || 0) * 1000;
-        const bt = b.createdAt && typeof b.createdAt.toDate === 'function' ? b.createdAt.toDate().getTime() : (b.createdAt?.seconds || 0) * 1000;
+        const at = getCreatedAtMillis(a.createdAt);
+        const bt = getCreatedAtMillis(b.createdAt);
         return bt - at;
       });
 
+    const cursorFiltered = cursorMillis > 0
+      ? normalized.filter((entry) => getCreatedAtMillis(entry.createdAt) < cursorMillis)
+      : normalized;
+
     // Determine pagination
-    const hasMore = normalized.length > limit;
-    const docsToReturn = hasMore ? normalized.slice(0, limit) : normalized.slice(0);
-    const getMillis = (ts: any) => {
-      if (!ts) return 0;
-      if (typeof ts.toDate === 'function') return ts.toDate().getTime();
-      if (ts.seconds) return ts.seconds * 1000;
-      if (ts._seconds) return ts._seconds * 1000;
-      const parsed = new Date(ts);
-      if (!isNaN(parsed.getTime())) return parsed.getTime();
-      return 0;
-    };
-    const nextCursor = hasMore && docsToReturn.length > 0 ? new Date(getMillis(docsToReturn[docsToReturn.length - 1].createdAt)).toISOString() : null;
+    const hasMore = cursorFiltered.length > limit;
+    const docsToReturn = hasMore ? cursorFiltered.slice(0, limit) : cursorFiltered.slice(0);
+    const nextCursor = hasMore && docsToReturn.length > 0
+      ? new Date(getCreatedAtMillis(docsToReturn[docsToReturn.length - 1].createdAt)).toISOString()
+      : null;
 
     const games: GameData[] = docsToReturn.map((g) => ({
       id: g.id,

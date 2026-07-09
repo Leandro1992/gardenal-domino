@@ -29,11 +29,29 @@ interface DashboardStats {
   totalGames: number;
 }
 
+interface DashboardModeStats {
+  victories: number;
+  defeats: number;
+  totalGames: number;
+}
+
 interface DashboardResponse {
   activeGames: DashboardGame[];
   totalGames: number;
   activeGamesCount: number;
   userStats: DashboardStats;
+  gameTotals?: {
+    totalGames: number;
+    totalGamesFree: number;
+    totalGamesChampionship: number;
+    activeGamesCount: number;
+    activeGamesFree: number;
+    activeGamesChampionship: number;
+  };
+  userStatsByMode?: {
+    free: DashboardModeStats;
+    championship: DashboardModeStats;
+  };
 }
 
 interface GamesResponse {
@@ -99,16 +117,20 @@ export function usePanelaData() {
 
 export function useSearchGames(
   playerId?: string,
+  mode?: "free" | "championship",
   startDate?: string,
   endDate?: string,
   pageSize = 20,
   cursor?: string,
-  includeFinished = true
+  includeFinished = true,
+  searchNonce?: number
 ) {
   const params = new URLSearchParams();
   if (playerId) params.append('playerId', playerId);
+  if (mode) params.append('mode', mode);
   if (startDate) params.append('startDate', startDate);
   if (endDate) params.append('endDate', endDate);
+  if (searchNonce) params.append('_searchNonce', searchNonce.toString());
   params.append('pageSize', pageSize.toString());
   if (cursor) params.append('cursor', cursor);
   params.append('includeFinished', includeFinished ? 'true' : 'false');

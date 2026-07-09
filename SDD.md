@@ -49,10 +49,12 @@ Arquivos criticos:
 - lib/auth.ts
 - lib/firebaseAdmin.ts
 - pages/api/games/index.ts
+- pages/api/games/search.ts
 - pages/api/games/[id]/rounds.ts
 - pages/api/games/[id]/finish.ts
 - pages/api/games/[id]/rounds/[roundNumber].ts
 - pages/api/stats/dashboard.ts
+- pages/api/championship-ranking.ts
 - types/models.ts
 
 ## 5. Modelo de Dominio
@@ -136,7 +138,20 @@ Campos principais:
 ### 7.6 Dashboard
 - Endpoint: GET /api/stats/dashboard.
 - Retorna partidas ativas recentes, totais globais e estatisticas do usuario.
+- Consolida dados dos modos livre (games) e campeonato (championship_games).
 - Estatisticas incluem: victories, defeats, lisasApplied, lisasTaken.
+
+### 7.7 Busca de partidas
+- Endpoint: GET /api/games/search.
+- Suporta filtros por jogador, modalidade e periodo.
+- Quando houver filtro por jogador/data, consulta base completa para evitar perda de resultados.
+- Usa cursor para paginacao e retorna resultados ordenados por createdAt desc.
+- Resposta com Cache-Control no-store para evitar cache local em buscas filtradas.
+
+### 7.8 Ranking mensal de campeonato
+- Endpoint: GET /api/championship-ranking?type=monthly.
+- Separa jogadores elegiveis e nao elegiveis por minimo de jogos.
+- Para nao elegiveis, retorna parcial com score, vitorias, derrotas e posicao parcial.
 
 ## 8. Persistencia e Integracao
 ### 8.1 Firestore
@@ -165,6 +180,7 @@ Principais rotas:
 - Auth: /api/auth/login, /api/auth/logout, /api/auth/me, /api/auth/change-password, /api/auth/update-profile
 - Admin: /api/admin/users, /api/admin/users/:id/name, /api/admin/users/:id/password, /api/admin/users/:id/role
 - Games: /api/games, /api/games/:id, /api/games/:id/rounds, /api/games/:id/finish, /api/games/:id/rounds/:roundNumber
+- Championship: /api/championship-games, /api/championship-ranking
 - Stats: /api/stats/dashboard, /api/stats/me, /api/stats/panela, /api/stats/ranking
 
 ## 11. Operacao e Deploy
