@@ -100,8 +100,6 @@ export default function ParamsPage() {
               <Input
                 label="Mínimo de jogos para ranking mensal"
                 type="number"
-                min={1}
-                max={100}
                 value={String(params.minGamesForMonthlyRanking)}
                 onChange={(e) =>
                   setParams((p) => ({
@@ -117,8 +115,6 @@ export default function ParamsPage() {
               <Input
                 label="Máximo de jogos com mesmo parceiro por mês"
                 type="number"
-                min={1}
-                max={20}
                 value={String(params.maxPartnerRepetitionsPerMonth)}
                 onChange={(e) =>
                   setParams((p) => ({

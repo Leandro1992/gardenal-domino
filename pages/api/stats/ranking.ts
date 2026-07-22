@@ -42,6 +42,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const users = usersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as User));
 
     const gamesSnap = await db.collection("games").where("finished", "==", true).get();
+    const champSnap = await db.collection("championship_games").where("finished", "==", true).get();
+
+    // allow filtering by game mode: 'all' (default), 'free', 'championship'
+    const gameModeQuery = typeof req.query.gameMode === 'string' ? req.query.gameMode : 'all';
 
     const ranking = users.map((user) => {
       let victories = 0;
@@ -53,6 +57,55 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const game: any = doc.data();
         const teamAIds = game.teamA || [];
         const teamBIds = game.teamB || [];
+        const isChamp = false;
+
+        // filter by requested game mode
+        if (gameModeQuery === 'championship' && !isChamp) return;
+        if (gameModeQuery === 'free' && isChamp) return;
+
+        const isInTeamA = teamAIds.includes(user.id);
+        const isInTeamB = teamBIds.includes(user.id);
+        if (!isInTeamA && !isInTeamB) return;
+
+        const winnerTeam = game.winnerTeam;
+        if (!winnerTeam || (winnerTeam !== "A" && winnerTeam !== "B")) return;
+
+        const scoreA = game.teamA_total || 0;
+        const scoreB = game.teamB_total || 0;
+        const hasLisa = Array.isArray(game.lisa) ? game.lisa.length > 0 : Boolean(game.lisa);
+
+        // No ranking de lisa, considerar apenas jogos com lisa
+        if (mode === "lisa" && !hasLisa) return;
+
+        if (isInTeamA) {
+          if (winnerTeam === "A") {
+            victories++;
+            if (scoreA >= 100 && scoreB === 0) lisasApplied++;
+          } else {
+            defeats++;
+            if (scoreA === 0 && scoreB >= 100) lisasTaken++;
+          }
+        } else if (isInTeamB) {
+          if (winnerTeam === "B") {
+            victories++;
+            if (scoreB >= 100 && scoreA === 0) lisasApplied++;
+          } else {
+            defeats++;
+            if (scoreB === 0 && scoreA >= 100) lisasTaken++;
+          }
+        }
+      });
+
+      // also include championship games
+      champSnap.docs.forEach((doc) => {
+        const game: any = doc.data();
+        const teamAIds = game.teamA || [];
+        const teamBIds = game.teamB || [];
+        const isChamp = true;
+
+        // filter by requested game mode
+        if (gameModeQuery === 'championship' && !isChamp) return;
+        if (gameModeQuery === 'free' && isChamp) return;
 
         const isInTeamA = teamAIds.includes(user.id);
         const isInTeamB = teamBIds.includes(user.id);

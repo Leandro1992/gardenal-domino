@@ -79,6 +79,24 @@ const MEDAL_LABELS: Record<string, string> = {
   participation: '🎖️',
 };
 
+const getMedalIcon = (position: number) => {
+  switch (position) {
+    case 1: return <Trophy className="h-6 w-6 text-yellow-500" />;
+    case 2: return <Medal className="h-6 w-6 text-gray-400" />;
+    case 3: return <Medal className="h-6 w-6 text-amber-600" />;
+    default: return null;
+  }
+};
+
+const getPositionColor = (position: number) => {
+  switch (position) {
+    case 1: return 'bg-yellow-50 border-yellow-200';
+    case 2: return 'bg-gray-50 border-gray-200';
+    case 3: return 'bg-amber-50 border-amber-200';
+    default: return 'bg-white border-gray-200';
+  }
+};
+
 export default function RankingPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -86,7 +104,8 @@ export default function RankingPage() {
 
   // General ranking
   const { data: generalData, isLoading: isGeneralLoading } = useRankingGeneral();
-  const { data: lisaData, isLoading: isLisaLoading } = useRankingLisa();
+  const [lisaMode, setLisaMode] = useState<'all' | 'free' | 'championship'>('all');
+  const { data: lisaData, isLoading: isLisaLoading } = useRankingLisa(lisaMode);
 
   // Monthly championship ranking
   const [monthlyData, setMonthlyData] = useState<{
@@ -140,23 +159,122 @@ export default function RankingPage() {
     );
   }
 
-  const getMedalIcon = (position: number) => {
-    switch (position) {
-      case 1: return <Trophy className="h-6 w-6 text-yellow-500" />;
-      case 2: return <Medal className="h-6 w-6 text-gray-400" />;
-      case 3: return <Medal className="h-6 w-6 text-amber-600" />;
-      default: return null;
-    }
-  };
+  // Usuários não-admins só veem o ranking de lisas (com opção de filtro por modo)
+  if (user.role !== 'admin') {
+    const lisaRanking = (lisaData?.ranking || []) as PlayerStats[];
+    const isLoading = isLisaLoading;
 
-  const getPositionColor = (position: number) => {
-    switch (position) {
-      case 1: return 'bg-yellow-50 border-yellow-200';
-      case 2: return 'bg-gray-50 border-gray-200';
-      case 3: return 'bg-amber-50 border-amber-200';
-      default: return 'bg-white border-gray-200';
-    }
-  };
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Ranking de Lisas</h1>
+          <p className="text-gray-600 mt-1">Lista pública de saldo de lisas</p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-600">Modo:</span>
+          <div className="inline-flex rounded-md border bg-white">
+            <button
+              onClick={() => setLisaMode('all')}
+              className={`px-3 py-1 text-sm ${lisaMode === 'all' ? 'bg-primary-600 text-white' : 'text-gray-700'}`}
+            >
+              Geral
+            </button>
+            <button
+              onClick={() => setLisaMode('championship')}
+              className={`px-3 py-1 text-sm ${lisaMode === 'championship' ? 'bg-primary-600 text-white' : 'text-gray-700'}`}
+            >
+              Campeonato
+            </button>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {lisaRanking.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <Flame className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                  <p className="text-gray-500">Ainda não há partidas com lisa</p>
+                </CardContent>
+              </Card>
+            ) : (
+              lisaRanking.map((player, index) => {
+                const position = index + 1;
+                const isCurrentUser = player.id === user.id;
+                const lisaScore = player.lisasApplied - player.lisasTaken;
+
+                return (
+                  <Card
+                    key={`lisa-${player.id}`}
+                    className={`${getPositionColor(position)} ${isCurrentUser ? 'ring-2 ring-primary-500' : ''} transition-shadow hover:shadow-md`}
+                  >
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center justify-center w-12 h-12 flex-shrink-0">
+                          {getMedalIcon(position) || (
+                            <div className="text-2xl font-bold text-gray-600">{position}</div>
+                          )}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="text-lg font-semibold text-gray-900 truncate">{player.name}</h3>
+                            {isCurrentUser && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-100 text-primary-800">
+                                Você
+                              </span>
+                            )}
+                          </div>
+                          <div className="space-y-1.5 text-sm text-gray-600">
+                            <div className="flex items-center gap-4 flex-wrap">
+                              <span className="whitespace-nowrap flex items-center gap-1">
+                                <Flame className="h-3 w-3 text-yellow-600" />
+                                <strong className="text-yellow-700">{player.lisasApplied}</strong>
+                              </span>
+                              <span className="text-gray-300">•</span>
+                              <span className="whitespace-nowrap flex items-center gap-1">
+                                <Frown className="h-3 w-3 text-purple-600" />
+                                <strong className="text-purple-700">{player.lisasTaken}</strong>
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-4 flex-wrap text-gray-700">
+                              <span className="whitespace-nowrap">Partidas: <strong>{player.totalGames}</strong></span>
+                              <span className="whitespace-nowrap text-green-700">Vitórias: <strong>{player.victories}</strong></span>
+                              <span className="whitespace-nowrap text-red-700">Derrotas: <strong>{player.defeats}</strong></span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-right flex-shrink-0">
+                          <div className="text-sm text-gray-500 mb-1">Saldo Lisa</div>
+                          <div className={`text-3xl font-bold ${
+                            lisaScore > 0 
+                              ? 'text-green-600' 
+                              : lisaScore < 0 
+                              ? 'text-red-600' 
+                              : 'text-gray-600'
+                          }`}>
+                            {lisaScore > 0 ? '+' : ''}{lisaScore}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+
 
   const tabs: { id: Tab; label: string }[] = [
     { id: 'monthly', label: 'Mensal (Campeonato)' },
