@@ -57,11 +57,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const game: any = doc.data();
         const teamAIds = game.teamA || [];
         const teamBIds = game.teamB || [];
-        const gameMode = game.mode || 'free';
+        const isChamp = false;
 
         // filter by requested game mode
-        if (gameModeQuery === 'championship' && gameMode !== 'championship') return;
-        if (gameModeQuery === 'free' && gameMode !== 'free') return;
+        if (gameModeQuery === 'championship' && !isChamp) return;
+        if (gameModeQuery === 'free' && isChamp) return;
 
         const isInTeamA = teamAIds.includes(user.id);
         const isInTeamB = teamBIds.includes(user.id);
@@ -101,11 +101,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const game: any = doc.data();
         const teamAIds = game.teamA || [];
         const teamBIds = game.teamB || [];
-        const gameMode = 'championship';
+        const isChamp = true;
 
         // filter by requested game mode
-        if (gameModeQuery === 'championship' && gameMode !== 'championship') return;
-        if (gameModeQuery === 'free' && gameMode !== 'free') return;
+        if (gameModeQuery === 'championship' && !isChamp) return;
+        if (gameModeQuery === 'free' && isChamp) return;
 
         const isInTeamA = teamAIds.includes(user.id);
         const isInTeamB = teamBIds.includes(user.id);
