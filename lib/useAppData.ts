@@ -107,8 +107,9 @@ export function useRankingGeneral() {
   return useSWR<RankingResponse>(appDataKeys.rankingGeneral);
 }
 
-export function useRankingLisa() {
-  return useSWR<RankingResponse>(appDataKeys.rankingLisa);
+export function useRankingLisa(gameMode: 'all' | 'free' | 'championship' = 'all') {
+  const url = `/api/stats/ranking?mode=lisa&gameMode=${gameMode}`;
+  return useSWR<RankingResponse>(url);
 }
 
 export function usePanelaData() {

@@ -60,7 +60,7 @@ export interface ChampionshipMedal {
 
 export interface SystemParams {
   minGamesForMonthlyRanking: number; // default 8
-  maxPartnerRepetitionsPerMonth: number; // default 2
+  maxPartnerRepetitionsPerMonth: number; // default 50
   updatedAt?: FirestoreTimestamp;
   updatedBy?: string;
 }
@@ -84,5 +84,5 @@ export const MEDAL_WEIGHTS: Record<MedalType, number> = {
 
 export const DEFAULT_PARAMS: SystemParams = {
   minGamesForMonthlyRanking: 8,
-  maxPartnerRepetitionsPerMonth: 2,
+  maxPartnerRepetitionsPerMonth: 50,
 };

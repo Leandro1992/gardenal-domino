@@ -43,9 +43,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (
       typeof maxPartnerRepetitionsPerMonth !== "number" ||
       maxPartnerRepetitionsPerMonth < 1 ||
-      maxPartnerRepetitionsPerMonth > 20
+      maxPartnerRepetitionsPerMonth > 50
     ) {
-      return res.status(400).json({ error: "maxPartnerRepetitionsPerMonth deve ser entre 1 e 20" });
+      return res.status(400).json({ error: "maxPartnerRepetitionsPerMonth deve ser entre 1 e 50" });
     }
 
     const updated: SystemParams = {
