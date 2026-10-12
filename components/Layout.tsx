@@ -3,7 +3,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/lib/useAuth';
-import { Home, Users, Trophy, LogOut, Menu, X, Settings, Award, CalendarDays, SlidersHorizontal, BookOpenText, Trash2 } from 'lucide-react';
+import { Home, Users, Trophy, LogOut, Menu, X, Settings, Award, CalendarDays, SlidersHorizontal, BookOpenText, Trash2, Video } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface LayoutProps {
@@ -29,6 +29,7 @@ export default function Layout({ children }: LayoutProps) {
     { name: 'Partidas', href: '/games', icon: Trophy },
     { name: 'Ranking', href: '/ranking', icon: Award },
     { name: 'Panela', href: '/panela', icon: Users },
+    { name: 'Lances Gardenal', href: '/lances', icon: Video },
     ...(user.role === 'admin'
         ? [
             { name: 'Usuários', href: '/admin/users', icon: Users },

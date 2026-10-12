@@ -49,10 +49,16 @@ Aplicacao fullstack para gestao de partidas de domino com autenticacao, administ
 - Ranking mensal mostra pontuacao parcial dos nao elegiveis.
 - Ranking de duplas (panela).
 
-### 6) Interface
+### 6) Lances Gardenal (videos dos jogos)
+- Pagina /lances com listagem dos videos .mp4 do bucket Cloudflare R2.
+- Ordenados por data (mais recentes primeiro), limite de 100, com tamanho, data e download.
+- API /api/lances usa URLs assinadas (1h) e cache de 30s; exige autenticacao.
+- Variaveis: R2_ENDPOINT, R2_BUCKET, R2_PREFIX, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY.
+
+### 7) Interface
 - Layout responsivo mobile-first.
 - Navegacao com sidebar desktop e menu mobile.
-- Paginas principais: dashboard, partidas, ranking, panela, settings e admin/users.
+- Paginas principais: dashboard, partidas, ranking, panela, lances, settings e admin/users.
 
 ## Seguranca e dados
 - Protecao de rotas por autenticacao no backend.
