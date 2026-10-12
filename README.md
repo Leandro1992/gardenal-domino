@@ -41,6 +41,11 @@ Aplicacao web para registrar partidas de domino, acompanhar estatisticas e ranki
 - Ranking geral e modo lisa (/api/stats/ranking?mode=general|lisa).
 - Ranking de duplas/panela (/api/stats/panela).
 
+### Lances Gardenal (videos)
+- Pagina /lances lista os videos (.mp4) dos jogos armazenados em bucket Cloudflare R2 (compativel S3).
+- Videos mais recentes primeiro (ate 100), com download via URL assinada (validade de 1h).
+- Requer usuario autenticado; retorna 503 se o R2 nao estiver configurado.
+
 ### Interface
 - Mobile-first, menu hamburguer no mobile e sidebar no desktop.
 - Paginas: login, dashboard, partidas, nova partida, detalhe da partida, ranking, panela, settings e admin/users.
@@ -82,6 +87,9 @@ Aplicacao web para registrar partidas de domino, acompanhar estatisticas e ranki
 - GET /api/stats/panela
 - GET /api/championship-ranking
 
+### Lances
+- GET /api/lances (lista videos do R2 com URLs assinadas; cache de 30s)
+
 ## Setup local
 
 ### 1) Instalar dependencias
@@ -96,6 +104,8 @@ npm install
 - JWT_SECRET
 - DEFAULT_ADMIN_EMAIL
 - DEFAULT_ADMIN_PASSWORD
+- R2_ENDPOINT, R2_BUCKET, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY (videos dos lances)
+- R2_PREFIX (opcional, padrao clips/)
 
 ### 3) Seed de admin
 ```bash
